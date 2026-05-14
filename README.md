@@ -12,12 +12,12 @@ There is no chat UI inside PyMOL. PyMOL is the viewer. Claude (in terminal, phon
 
 **Prerequisites:** PyMOL must be installed separately:
 ```bash
-conda install -c conda-forge pymol-open-source
+uv pip install pymol-open-source
 ```
 
 **Install the plugin:**
 ```bash
-pip install -e .
+uv pip install -e .
 ```
 
 **Or as a PyMOL plugin (GUI):**

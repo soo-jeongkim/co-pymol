@@ -35,7 +35,7 @@ def _ensure_pymol():
     except ImportError:
         raise RuntimeError(
             "PyMOL is not installed. Install it with: "
-            "conda install -c conda-forge pymol-open-source"
+            "uv pip install pymol-open-source"
         )
 
 

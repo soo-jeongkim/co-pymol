@@ -15,7 +15,7 @@ All `pymol.cmd` calls are serialized with `_pymol_lock` (a `threading.Lock`). Th
 
 ## How to test
 
-1. Install: `pip install -e .`
+1. Install: `uv pip install -e .`
 2. Start PyMOL (GUI): plugin auto-starts, check console for "MCP server running on..."
 3. Or headless: `pymol -cq -r start_headless.py -- --port 8766`
 4. Test with curl: `curl http://localhost:8766/sse` should establish SSE connection
@@ -43,4 +43,4 @@ def my_new_tool(arg: str) -> str:
 - `fastmcp>=2.0` — MCP server framework
 - `biotite>=0.40` — structure file parsing for metrics
 - `numpy`, `scipy`, `rich` — supporting libraries
-- PyMOL — **not a pip dependency**, install via `conda install -c conda-forge pymol-open-source`
+- PyMOL — **not a pip dependency**, install via `uv pip install pymol-open-source`
