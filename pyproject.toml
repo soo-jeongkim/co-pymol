@@ -1,0 +1,19 @@
+[project]
+name = "pymol-claude"
+version = "0.1.0"
+description = "PyMOL plugin that exposes PyMOL as MCP tools for Claude Code and Claude mobile"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "biotite>=0.40",
+    "rich>=13",
+]
+
+[project.scripts]
+pymol-claude = "pymol_claude.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
