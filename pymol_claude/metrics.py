@@ -52,7 +52,7 @@ class StructureRecord:
                          f">90 very high confidence, "
                          f"70-90 confident, "
                          f"50-70 low confidence, "
-                         f"<50 very low / disordered")
+                         f"<50 very low")
         if self.ptm is not None:
             lines.append(f"  pTM: {self.ptm:.3f}")
         if self.iptm is not None:
