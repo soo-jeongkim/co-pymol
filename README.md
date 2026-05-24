@@ -126,6 +126,6 @@ The dedicated tools cover what `run` can't:
 ## PyMOL commands
 
 ```
-start_claude [port]   # Start MCP server (auto-starts on plugin load)
-stop_claude           # Stop MCP server
+start_mcp [port]   # Start MCP server (auto-starts on plugin load)
+stop_mcp           # Stop MCP server
 ```
