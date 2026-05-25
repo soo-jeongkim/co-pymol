@@ -4,7 +4,7 @@ PyMOL plugin that turns PyMOL into an MCP server. Drive PyMOL — load, color, a
 
 ## What it is
 
-`pymol-claude` lets you drive PyMOL from Cursor or Claude Code (or any MCP client) in plain English — load structures, color, align, score, render. PyMOL hosts the MCP server; your editor is the client. Start PyMOL once and leave it running.
+`pymol-claude` lets you drive PyMOL from Cursor or Claude Code (or any MCP client) in English — load structures, color, align, score, render. PyMOL hosts the MCP server; your editor is the client. Start PyMOL once and leave it running.
 
 It ships with `gemmi`-backed metric tools, so pLDDT, ipTM, pTM, and PAE are read straight from mmCIF without rendering — triage queries like "which model has the worst ipTM?" come back as fast text answers. You can also drop a `.py` of your own PyMOL helpers anywhere on disk and ask the agent to load it; your lab's view presets and analysis functions work without being rewritten as MCP tools.
 
