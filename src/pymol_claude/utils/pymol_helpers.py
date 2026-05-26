@@ -9,7 +9,7 @@ import threading
 import time
 from pathlib import Path
 
-from fastmcp.utilities.types import Image
+from mcp.server.fastmcp import Image
 
 from pymol_claude.config import (
     PLDDT_PALETTE,

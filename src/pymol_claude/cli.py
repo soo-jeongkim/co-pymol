@@ -4,7 +4,7 @@ Subcommands:
     install-hook       Append the plugin startup line to ~/.pymolrc.py
     install-config     Write Cursor MCP config (global by default)
 
-The CLI is pure stdlib — it does not import pymol or fastmcp — so it can run
+The CLI is pure stdlib — it does not import pymol or mcp — so it can run
 under any Python interpreter, even if the plugin itself was installed into
 PyMOL's bundled Python.
 """

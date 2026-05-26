@@ -32,23 +32,14 @@ def start_mcp(port: int = DEFAULT_PORT):
         print("pymol-claude: MCP server is already running")
         return
 
-    import os
-
-    os.environ["FASTMCP_LOG_LEVEL"] = "WARNING"
-
     from pymol_claude.server import create_server
 
-    server = create_server()
     port = int(port)
+    server = create_server(host=DEFAULT_HOST, port=port, log_level="WARNING")
 
     server_thread = threading.Thread(
         target=server.run,
-        kwargs={
-            "transport": "sse",
-            "host": DEFAULT_HOST,
-            "port": port,
-            "log_level": "warning",
-        },
+        kwargs={"transport": "sse"},
         daemon=True,
     )
     server_thread.start()

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from fastmcp import FastMCP
-from fastmcp.utilities.types import Image
+from mcp.server.fastmcp import FastMCP, Image
 
 from pymol_claude.utils.pymol_helpers import (
     apply_plddt_palette,
@@ -25,7 +24,7 @@ def register_render_tools(mcp: FastMCP) -> None:
             apply_plddt_palette(cmd, selection)
             return f"Colored {selection} by pLDDT"
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def render(width: int = 800, height: int = 600, ray: bool = True) -> Image | str:
         """Render current view as an image. ray=True for high quality (slower)."""
         try:
@@ -34,7 +33,7 @@ def register_render_tools(mcp: FastMCP) -> None:
         except RuntimeError as e:
             return f"Error: {e}"
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def snapshot(width: int = 800, height: int = 600) -> Image | str:
         """Quick snapshot without ray tracing. Faster, lower quality."""
         try:

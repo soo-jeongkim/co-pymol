@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import gemmi
-from fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 from pymol_claude.core.metrics import StructureRecord
 from pymol_claude.core.metrics import find_low_confidence as find_low
