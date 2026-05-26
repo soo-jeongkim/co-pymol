@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from contextlib import redirect_stdout
 
-from fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 from pymol_claude.utils.pymol_helpers import ensure_pymol, pymol_lock
 

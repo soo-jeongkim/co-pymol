@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from fastmcp import FastMCP
-from fastmcp.utilities.types import Image
+from mcp.server.fastmcp import FastMCP, Image
 
 from pymol_claude.core.session import AppSession
 from pymol_claude.utils.pymol_helpers import ensure_pymol, pymol_lock, triage_render
@@ -38,25 +37,25 @@ def register_triage_tools(mcp: FastMCP, session: AppSession) -> None:
         except RuntimeError as e:
             return f"Error: {e}"
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def next_structure() -> Image | str:
         """Advance to next structure, load it, color by pLDDT, and render."""
         session.triage.next()
         return _render_current()
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def prev_structure() -> Image | str:
         """Go back to previous structure, load it, color by pLDDT, and render."""
         session.triage.prev()
         return _render_current()
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def go_to(number: int) -> Image | str:
         """Jump to Nth structure (1-indexed), load it, and render."""
         session.triage.go_to(number)
         return _render_current()
 
-    @mcp.tool()
+    @mcp.tool(structured_output=False)
     def current() -> Image | str:
         """Re-render the current structure without advancing."""
         return _render_current()
