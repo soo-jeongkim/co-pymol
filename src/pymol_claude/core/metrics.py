@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import gemmi
 import numpy as np
@@ -18,14 +18,14 @@ class StructureRecord:
     path: Path
     chains: list[str]
     n_residues: int
-    plddt: Optional[np.ndarray] = field(default=None, repr=False)  # per-residue, 0-100
-    pae: Optional[np.ndarray] = field(default=None, repr=False)
-    iptm: Optional[float] = None
-    ptm: Optional[float] = None
-    ranking_score: Optional[float] = None  # AF3-only top-line score
+    plddt: np.ndarray | None = field(default=None, repr=False)  # per-residue, 0-100
+    pae: np.ndarray | None = field(default=None, repr=False)
+    iptm: float | None = None
+    ptm: float | None = None
+    ranking_score: float | None = None  # AF3-only top-line score
 
     @property
-    def mean_plddt(self) -> Optional[float]:
+    def mean_plddt(self) -> float | None:
         if self.plddt is not None and len(self.plddt) > 0:
             return float(np.mean(self.plddt))
         return None
@@ -107,10 +107,8 @@ def metrics_from_cif(path: Path) -> dict:
         key = GLOBAL_METRIC_MAP.get(info[0])
         if key is None:
             continue
-        try:
+        with contextlib.suppress(ValueError):
             out[key] = float(row[1])
-        except ValueError:
-            pass
 
     # Identify the PAE metric_id by name aliases or type — predictor-dependent.
     pae_metric_id = None
@@ -200,10 +198,8 @@ def find_sibling_json(path: Path) -> dict:
         if pae is None and isinstance(container, dict):
             pae = container.get("predicted_aligned_error")
         if pae is not None:
-            try:
+            with contextlib.suppress(ValueError):
                 extra["pae"] = np.array(pae)
-            except ValueError:
-                pass
         break
 
     conf_candidates = []
@@ -242,7 +238,7 @@ def find_sibling_json(path: Path) -> dict:
     return extra
 
 
-def extract_record(path: Path, name: Optional[str] = None) -> StructureRecord:
+def extract_record(path: Path, name: str | None = None) -> StructureRecord:
     """Extract structure metadata using gemmi."""
     path = Path(path)
     if name is None:
@@ -272,7 +268,7 @@ def extract_record(path: Path, name: Optional[str] = None) -> StructureRecord:
     if plddt_vals:
         arr = np.array(plddt_vals, dtype=np.float64)
         # pLDDT is 0-100 with meaningful variance; otherwise it's a real B-factor.
-        if 0 <= float(arr.min()) and float(arr.max()) <= 100 and float(arr.std()) > 0.5:
+        if float(arr.min()) >= 0 and float(arr.max()) <= 100 and float(arr.std()) > 0.5:
             plddt = arr
 
     # CIF-embedded metrics take precedence over sibling JSON.
@@ -323,8 +319,9 @@ def find_low_confidence(record: StructureRecord, threshold: int = 70) -> str:
     ]
     for start, end, mean_val in regions:
         length = end - start + 1
+        res_range = f"{start + 1}-{end + 1}"
         lines.append(
-            f"  residues {start + 1}-{end + 1} ({length} residues, mean pLDDT={mean_val:.1f})"
+            f"  residues {res_range} ({length} residues, mean pLDDT={mean_val:.1f})"
         )
 
     return "\n".join(lines)

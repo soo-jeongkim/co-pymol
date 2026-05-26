@@ -1,0 +1,83 @@
+data_model
+_entry.id model
+
+_cell.entry_id model
+_cell.length_a 1
+_cell.length_b 1
+_cell.length_c 1
+_cell.angle_alpha 90
+_cell.angle_beta 90
+_cell.angle_gamma 90
+
+_symmetry.entry_id model
+_symmetry.space_group_name_H-M ''
+
+loop_
+_ma_qa_metric.id
+_ma_qa_metric.name
+_ma_qa_metric.type
+1 pTM pTM
+2 ipTM ipTM
+3 PAE PAE
+4 ranking_score ranking_score
+#
+loop_
+_ma_qa_metric_global.metric_id
+_ma_qa_metric_global.metric_value
+1 0.880
+2 0.720
+3 0.910
+4 0.870
+#
+loop_
+_ma_qa_metric_local_pairwise.label_asym_id_1
+_ma_qa_metric_local_pairwise.seq_id_1
+_ma_qa_metric_local_pairwise.label_asym_id_2
+_ma_qa_metric_local_pairwise.seq_id_2
+_ma_qa_metric_local_pairwise.metric_value
+_ma_qa_metric_local_pairwise.metric_id
+A 1 A 1 0.5 3
+A 1 A 2 2.5 3
+A 2 A 1 2.5 3
+A 2 A 2 0.5 3
+
+
+
+
+
+loop_
+_chem_comp.id
+_chem_comp.type
+ALA .
+GLY .
+
+
+
+
+loop_
+_atom_type.symbol
+C
+
+
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+_atom_site.pdbx_PDB_model_num
+ATOM 1 C CA . ALA . . . ? 0 0 0 1 88 ? 1 A 1
+ATOM 2 C CA . GLY . . . ? 3.8 0 0 1 45 ? 2 A 1

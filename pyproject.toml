@@ -2,6 +2,8 @@
 name = "pymol-claude"
 version = "0.1.0"
 description = "PyMOL plugin that exposes PyMOL as MCP tools for Claude Code and Claude mobile"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=2.0",
@@ -12,11 +14,33 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pre-commit",
+    "pytest>=8.0",
     "ruff",
 ]
 
 [project.scripts]
 pymol-claude = "pymol_claude.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# instructions.py is one long prose string; line-length doesn't apply.
+"src/pymol_claude/instructions.py" = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pymol_claude"]
 
 [build-system]
 requires = ["hatchling"]

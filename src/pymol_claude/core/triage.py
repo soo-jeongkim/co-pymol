@@ -5,9 +5,14 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
-from pymol_claude.metrics import StructureRecord, extract_record
+from pymol_claude.config import STRUCTURE_EXTENSIONS
+from pymol_claude.core.metrics import StructureRecord, extract_record
+
+
+def plddt_label(mean_plddt: float | None) -> str:
+    """Short 'pLDDT=NN.N' label, or 'no pLDDT' when unscored."""
+    return f"pLDDT={mean_plddt:.1f}" if mean_plddt is not None else "no pLDDT"
 
 
 @dataclass
@@ -16,7 +21,7 @@ class TriageState:
     records: dict[str, StructureRecord] = field(default_factory=dict)
     index: int = 0
     flags: list[dict] = field(default_factory=list)
-    filter_indices: Optional[list[int]] = field(default=None, repr=False)
+    filter_indices: list[int] | None = field(default=None, repr=False)
 
     @property
     def active_indices(self) -> list[int]:
@@ -24,7 +29,7 @@ class TriageState:
             return self.filter_indices
         return list(range(len(self.files)))
 
-    def record_for_obj(self, obj_name: str) -> Optional[StructureRecord]:
+    def record_for_obj(self, obj_name: str) -> StructureRecord | None:
         """Look up a record by PyMOL object name (file stem) or filename."""
         rec = self.records.get(obj_name)
         if rec is not None:
@@ -39,18 +44,22 @@ class TriageState:
         return len(self.active_indices)
 
     def load_directory(self, path: str | Path) -> str:
-        """Scan directory for structure files and extract metrics."""
+        """Scan directory for structure files and extract metrics.
+
+        Raises NotADirectoryError / FileNotFoundError on bad input.
+        """
         path = Path(path)
         if not path.is_dir():
-            return f"Error: {path} is not a directory"
+            raise NotADirectoryError(f"{path} is not a directory")
 
-        extensions = {".cif", ".mmcif", ".pdb", ".ent"}
         found = sorted(
-            f for f in path.iterdir() if f.suffix.lower() in extensions and f.is_file()
+            f
+            for f in path.iterdir()
+            if f.suffix.lower() in STRUCTURE_EXTENSIONS and f.is_file()
         )
 
         if not found:
-            return f"No structure files found in {path}"
+            raise FileNotFoundError(f"No structure files found in {path}")
 
         self.files = found
         self.records = {}
@@ -68,9 +77,7 @@ class TriageState:
 
         lines = [f"Loaded {len(found)} structures from {path.name}/"]
         for r in sorted_records[:10]:
-            plddt_str = (
-                f"pLDDT={r.mean_plddt:.1f}" if r.mean_plddt is not None else "no pLDDT"
-            )
+            plddt_str = plddt_label(r.mean_plddt)
             iptm_str = f", ipTM={r.iptm:.3f}" if r.iptm is not None else ""
             lines.append(f"  {r.name}: {plddt_str}{iptm_str}")
         if len(found) > 10:
@@ -78,7 +85,7 @@ class TriageState:
 
         return "\n".join(lines)
 
-    def current_record(self) -> Optional[StructureRecord]:
+    def current_record(self) -> StructureRecord | None:
         """Get the record for the current file."""
         if not self.files or not self.active_indices:
             return None
@@ -86,28 +93,28 @@ class TriageState:
         f = self.files[idx]
         return self.records.get(f.name)
 
-    def current_path(self) -> Optional[Path]:
+    def current_path(self) -> Path | None:
         """Get path of current file."""
         if not self.files or not self.active_indices:
             return None
         idx = self.active_indices[self.index]
         return self.files[idx]
 
-    def next(self) -> Optional[Path]:
+    def next(self) -> Path | None:
         """Advance to next structure, return its path."""
         if not self.active_indices:
             return None
         self.index = min(self.index + 1, self.count - 1)
         return self.current_path()
 
-    def prev(self) -> Optional[Path]:
+    def prev(self) -> Path | None:
         """Go back one structure, return its path."""
         if not self.active_indices:
             return None
         self.index = max(self.index - 1, 0)
         return self.current_path()
 
-    def go_to(self, n: int) -> Optional[Path]:
+    def go_to(self, n: int) -> Path | None:
         """Jump to Nth structure (1-indexed)."""
         if not self.active_indices:
             return None
@@ -118,7 +125,7 @@ class TriageState:
         """Flag current structure."""
         record = self.current_record()
         if record is None:
-            return "No structure loaded"
+            return "Error: No structure loaded"
 
         entry = {
             "name": record.name,
@@ -138,11 +145,7 @@ class TriageState:
 
         lines = [f"{len(self.flags)} flagged structures:"]
         for i, f in enumerate(self.flags, 1):
-            plddt_str = (
-                f"pLDDT={f['mean_plddt']:.1f}"
-                if f["mean_plddt"] is not None
-                else "no pLDDT"
-            )
+            plddt_str = plddt_label(f["mean_plddt"])
             note_str = f" — {f['note']}" if f["note"] else ""
             lines.append(f"  {i}. {f['name']} ({plddt_str}){note_str}")
         return "\n".join(lines)
@@ -154,7 +157,10 @@ class TriageState:
     def filter(
         self, min_plddt: float, max_plddt: float, include_unscored: bool = False
     ) -> str:
-        """Filter structures by pLDDT range. Unscored records are excluded unless include_unscored=True."""
+        """Filter structures by pLDDT range.
+
+        Unscored records are excluded unless include_unscored=True.
+        """
         matching = []
         for i, f in enumerate(self.files):
             record = self.records.get(f.name)
@@ -167,4 +173,7 @@ class TriageState:
 
         self.filter_indices = matching if len(matching) < len(self.files) else None
         self.index = 0
-        return f"Filter: {len(matching)}/{len(self.files)} structures with pLDDT in [{min_plddt}, {max_plddt}]"
+        n, total = len(matching), len(self.files)
+        return (
+            f"Filter: {n}/{total} structures with pLDDT in [{min_plddt}, {max_plddt}]"
+        )
