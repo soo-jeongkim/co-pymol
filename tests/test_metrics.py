@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pymol_claude.core.metrics import (
+from pylot.core.metrics import (
     StructureRecord,
     extract_record,
     find_low_confidence,

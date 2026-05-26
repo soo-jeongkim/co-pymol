@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP, Image
 
-from pymol_claude.core.session import AppSession
-from pymol_claude.utils.pymol_helpers import ensure_pymol, pymol_lock, triage_render
+from pylot.core.session import AppSession
+from pylot.utils.pymol_helpers import ensure_pymol, pymol_lock, triage_render
 
 
 def register_triage_tools(mcp: FastMCP, session: AppSession) -> None:

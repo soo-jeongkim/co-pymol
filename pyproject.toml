@@ -1,5 +1,5 @@
 [project]
-name = "pymol-claude"
+name = "pylot"
 version = "0.1.0"
 description = "PyMOL plugin that exposes PyMOL as MCP tools for Claude Code and Claude mobile"
 readme = "README.md"
@@ -19,7 +19,7 @@ dev = [
 ]
 
 [project.scripts]
-pymol-claude = "pymol_claude.cli:main"
+pylot = "pylot.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -34,13 +34,13 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 # instructions.py is one long prose string; line-length doesn't apply.
-"src/pymol_claude/instructions.py" = ["E501"]
+"src/pylot/instructions.py" = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pymol_claude"]
+packages = ["src/pylot"]
 
 [build-system]
 requires = ["hatchling"]

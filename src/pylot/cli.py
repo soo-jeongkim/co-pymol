@@ -1,4 +1,4 @@
-"""CLI for pymol-claude setup and diagnostics.
+"""CLI for pylot setup and diagnostics.
 
 Subcommands:
     install-hook       Append the plugin startup line to ~/.pymolrc.py
@@ -17,10 +17,10 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from pymol_claude.config import DEFAULT_PORT
+from pylot.config import DEFAULT_PORT
 
-PYMOLRC_SENTINEL = "# pymol-claude: auto-start MCP server on PyMOL launch"
-PYMOLRC_LINE = "from pymol_claude import __init_plugin__; __init_plugin__()"
+PYMOLRC_SENTINEL = "# pylot: auto-start MCP server on PyMOL launch"
+PYMOLRC_LINE = "from pylot import __init_plugin__; __init_plugin__()"
 
 
 def server_url(port: int) -> str:
@@ -123,8 +123,8 @@ def cmd_install_config(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pymol-claude",
-        description="pymol-claude setup and diagnostics",
+        prog="pylot",
+        description="pylot setup and diagnostics",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 

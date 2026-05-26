@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from pymol_claude.config import DEFAULT_HOST, DEFAULT_PORT
-from pymol_claude.core.session import AppSession
-from pymol_claude.instructions import MCP_INSTRUCTIONS
-from pymol_claude.tools.metrics import register_metrics_tools
-from pymol_claude.tools.render import register_render_tools
-from pymol_claude.tools.run import register_run_tool
-from pymol_claude.tools.triage import register_triage_tools
+from pylot.config import DEFAULT_HOST, DEFAULT_PORT
+from pylot.core.session import AppSession
+from pylot.instructions import MCP_INSTRUCTIONS
+from pylot.tools.metrics import register_metrics_tools
+from pylot.tools.render import register_render_tools
+from pylot.tools.run import register_run_tool
+from pylot.tools.triage import register_triage_tools
 
 
 def create_server(
@@ -25,7 +25,7 @@ def create_server(
     """
     session = AppSession()
     mcp = FastMCP(
-        "pymol-claude",
+        "pylot",
         instructions=MCP_INSTRUCTIONS,
         host=host,
         port=port,

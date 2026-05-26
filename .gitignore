@@ -6,4 +6,4 @@ dist/
 build/
 CLAUDE.md
 .DS_Store
-pymol_claude/test/
+pylot/test/

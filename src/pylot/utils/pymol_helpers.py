@@ -11,7 +11,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import Image
 
-from pymol_claude.config import (
+from pylot.config import (
     PLDDT_PALETTE,
     RENDER_POLL_ATTEMPTS,
     RENDER_POLL_INTERVAL_S,

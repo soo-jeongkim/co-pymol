@@ -1,4 +1,4 @@
-# pymol-claude
+# pylot
 
 **Active WIP** — works for personal use.
 
@@ -6,7 +6,7 @@ tldr - PyMOL plugin that turns PyMOL into an MCP server. Drive PyMOL from Claude
 
 ## What it is
 
-`pymol-claude` lets you drive PyMOL from Cursor or Claude Code (or any MCP client) in English — load structures, color, align, score, render.
+`pylot` lets you drive PyMOL from Cursor or Claude Code (or any MCP client) in English — load structures, color, align, score, render.
 
 It ships with `gemmi`-backed metric tools, so pLDDT, ipTM, pTM, and PAE can be read from the CIF (or PDB) files without rendering. You can use it to triage with queries like "which design has the worst ipTM?" come back as fast text answers. You can also drop a `.py` of your own PyMOL custom presets and analysis functions within the cloned dir and ask the agent to use it.
 
@@ -38,15 +38,15 @@ The plugin installs into **PyMOL's bundled Python**, not your system Python.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/soo-jeongkim/pymol-claude.git
-cd pymol-claude
+git clone https://github.com/soo-jeongkim/pylot.git
+cd pylot
 /Applications/PyMOL.app/Contents/bin/python -m pip install --user -e .
 ```
 
 ### 2. Hook the plugin into PyMOL startup
 
 ```bash
-/Applications/PyMOL.app/Contents/bin/python -m pymol_claude.cli install-hook
+/Applications/PyMOL.app/Contents/bin/python -m pylot.cli install-hook
 ```
 
 Appends one line to `~/.pymolrc.py` so PyMOL loads the plugin on launch. Safe to re-run.
@@ -56,7 +56,7 @@ Appends one line to `~/.pymolrc.py` so PyMOL loads the plugin on launch. Safe to
 The console should print:
 
 ```
-pymol-claude: MCP server running on http://127.0.0.1:8766/sse
+pylot: MCP server running on http://127.0.0.1:8766/sse
 ```
 
 If you don't see that line, `~/.pymolrc.py` isn't being loaded. The file must be in your home directory (`echo $HOME` to check), and you need a full PyMOL quit + relaunch, not a window close.
@@ -68,7 +68,7 @@ Both setups are **global** — every Cursor window or Claude Code session sees t
 **Cursor:**
 
 ```bash
-/Applications/PyMOL.app/Contents/bin/python -m pymol_claude.cli install-config
+/Applications/PyMOL.app/Contents/bin/python -m pylot.cli install-config
 ```
 
 Writes/merges `~/.cursor/mcp.json`. Fully quit Cursor (`Cmd+Q`, not just close the window) and reopen; verify under Settings → Cursor Settings → MCP that `pymol` is listed.
@@ -102,8 +102,8 @@ claude mcp remove pymol --scope user
 Delete these two lines from `~/.pymolrc.py`:
 
 ```python
-# pymol-claude: auto-start MCP server on PyMOL launch
-from pymol_claude import __init_plugin__; __init_plugin__()
+# pylot: auto-start MCP server on PyMOL launch
+from pylot import __init_plugin__; __init_plugin__()
 ```
 
 If that was the only thing in the file, you can delete `~/.pymolrc.py` entirely.
@@ -111,7 +111,7 @@ If that was the only thing in the file, you can delete `~/.pymolrc.py` entirely.
 ### 3. Uninstall the package
 
 ```bash
-/Applications/PyMOL.app/Contents/bin/python -m pip uninstall pymol-claude
+/Applications/PyMOL.app/Contents/bin/python -m pip uninstall pylot
 ```
 
 ### 4. Restart PyMOL

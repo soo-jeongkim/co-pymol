@@ -7,7 +7,7 @@ from contextlib import redirect_stdout
 
 from mcp.server.fastmcp import FastMCP
 
-from pymol_claude.utils.pymol_helpers import ensure_pymol, pymol_lock
+from pylot.utils.pymol_helpers import ensure_pymol, pymol_lock
 
 # Restricted builtins for run() — enough for PyMOL scripting, not general Python.
 # No imports, open(), exec(), eval(), etc. Full PyMOL access remains via `cmd`.

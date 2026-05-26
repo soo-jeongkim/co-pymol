@@ -6,8 +6,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pymol_claude.config import STRUCTURE_EXTENSIONS
-from pymol_claude.core.metrics import StructureRecord, extract_record
+from pylot.config import STRUCTURE_EXTENSIONS
+from pylot.core.metrics import StructureRecord, extract_record
 
 
 def plddt_label(mean_plddt: float | None) -> str:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP, Image
 
-from pymol_claude.utils.pymol_helpers import (
+from pylot.utils.pymol_helpers import (
     apply_plddt_palette,
     ensure_pymol,
     pymol_lock,
