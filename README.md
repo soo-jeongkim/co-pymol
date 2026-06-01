@@ -65,6 +65,8 @@ pylot: MCP server running on http://127.0.0.1:8766/sse
 
 if you don't see that line, `~/.pymolrc.py` isn't being loaded. the file must be in your home directory (`echo $HOME` to check), and you need a full PyMOL quit + relaunch, not a window close.
 
+by default the server binds `127.0.0.1:8766` (loopback) — PyMOL and your MCP client must run on the same machine. to override, run `start_mcp` from the PyMOL command line: `start_mcp 9000` for a different port, or `start_mcp 8766, 0.0.0.0` to also accept connections from other machines. if you change either, point the client at the matching url (e.g. `install-config --host <host> --port <port>`).
+
 **4. wire up your MCP client**
 
 both setups are global — every Cursor window or Claude Code session sees the `pymol` server, no need to `cd` into this repo.
