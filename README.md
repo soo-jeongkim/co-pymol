@@ -1,11 +1,8 @@
 # pylot
 
-> we have pymol at home.
-> pymol at home:
+fyi — this repo is an active WIP!
 
-(fyi — this repo is an active WIP! it's scary in there.)
-
-## 00 the what
+## the what
 
 **`pylot`** is a pymol plugin that lets you use pymol through claude code and cursor agents.
 
@@ -27,13 +24,12 @@ model_3 — ipTM 0.41 (others are 0.7+).
 [renders cartoon on PyMOL window, residues 142–168 highlighted, mean pLDDT 38]
 ```
 
-## 01 the why
+## the why
 
-- vibe coding
 - automating analysis or visualisation with agents
 - remote access on mobile
 
-## 02 installing
+## installing
 
 note: only tested on macOS :/ linux / conda / non-standard installs should work in principle — the recipe is just "install into PyMOL's bundled Python" — but i haven't verified them.
 
@@ -137,8 +133,6 @@ if that was the only thing in the file, you can delete `~/.pymolrc.py` entirely.
 a full quit + relaunch. the `MCP server running on...` line should be gone. the plugin keeps no caches or logs of its own, so nothing else is left behind. (the cloned repo is yours to `rm -rf` whenever.)
 
 ## 05 notes
-
-- **`get_metrics` and `path`** — structures loaded via `load_directory` have metrics automatically. if you load with `run("cmd.load('foo.cif')")`, pass `path` to `get_metrics` or `find_low_confidence`.
 
 - **`run()` security** — executes locally with restricted Python builtins (no imports / file I/O), but full PyMOL access via `cmd`. only connect trusted MCP clients.
 
