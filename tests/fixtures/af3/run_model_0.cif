@@ -36,10 +36,10 @@ _ma_qa_metric_local_pairwise.label_asym_id_2
 _ma_qa_metric_local_pairwise.seq_id_2
 _ma_qa_metric_local_pairwise.metric_value
 _ma_qa_metric_local_pairwise.metric_id
-A 1 A 1 0.5 3
+A 1 A 1 0.0 3
 A 1 A 2 2.5 3
 A 2 A 1 2.5 3
-A 2 A 2 0.5 3
+A 2 A 2 0.0 3
 
 
 

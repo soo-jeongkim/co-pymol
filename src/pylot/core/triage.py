@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pylot.config import STRUCTURE_EXTENSIONS
+from pylot.constants import STRUCTURE_EXTENSIONS
 from pylot.core.metrics import StructureRecord, extract_record
 
 
@@ -61,27 +61,38 @@ class TriageState:
         if not found:
             raise FileNotFoundError(f"No structure files found in {path}")
 
-        self.files = found
         self.records = {}
         self.index = 0
         self.flags = []
         self.filter_indices = None
 
+        # One unparseable file shouldn't abort the batch — skip it but report why.
+        loaded: list[Path] = []
+        failed: list[tuple[Path, str]] = []
         for f in found:
-            record = extract_record(f)
-            self.records[f.name] = record
+            try:
+                self.records[f.name] = extract_record(f)
+                loaded.append(f)
+            except (RuntimeError, ValueError) as e:
+                failed.append((f, str(e)))
+        self.files = loaded
 
         sorted_records = sorted(
             self.records.values(), key=StructureRecord.sort_key, reverse=True
         )
 
-        lines = [f"Loaded {len(found)} structures from {path.name}/"]
+        lines = [f"Loaded {len(loaded)} structures from {path.name}/"]
         for r in sorted_records[:10]:
             plddt_str = plddt_label(r.mean_plddt)
             iptm_str = f", ipTM={r.iptm:.3f}" if r.iptm is not None else ""
             lines.append(f"  {r.name}: {plddt_str}{iptm_str}")
-        if len(found) > 10:
-            lines.append(f"  ... and {len(found) - 10} more")
+        if len(loaded) > 10:
+            lines.append(f"  ... and {len(loaded) - 10} more")
+
+        if failed:
+            lines.append(f"Skipped {len(failed)} unreadable file(s):")
+            for f, err in failed:
+                lines.append(f"  {f.name}: {err}")
 
         return "\n".join(lines)
 

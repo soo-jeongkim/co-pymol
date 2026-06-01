@@ -10,19 +10,19 @@ from mcp.server.fastmcp import FastMCP
 from pylot.core.metrics import StructureRecord
 from pylot.core.metrics import find_low_confidence as find_low
 from pylot.core.session import AppSession
-from pylot.utils.pymol_helpers import ensure_pymol, pymol_lock
+from pylot.tools.errors import error_wrapper
+from pylot.utils.pymol.helper import pymol_session
 
 
 def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
     @mcp.tool()
+    @error_wrapper
     def get_metrics(name: str = "", path: str = "") -> str:
         """Get detailed structure metrics (pLDDT, ipTM, pTM, PAE).
 
         For objects loaded via run('cmd.load(...)'), pass `path` to the structure file.
         """
-        cmd = ensure_pymol()
-
-        with pymol_lock:
+        with pymol_session() as cmd:
             objects = cmd.get_object_list()
         if not objects:
             return "Error: No objects loaded"
@@ -42,6 +42,7 @@ def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
         return "\n\n".join(results)
 
     @mcp.tool()
+    @error_wrapper
     def find_low_confidence(name: str = "", threshold: int = 70, path: str = "") -> str:
         """Find contiguous low-pLDDT regions in a structure."""
         if name:
@@ -51,8 +52,7 @@ def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
                 return f"Error: No metrics for '{name}'.{hint}"
             return find_low(record, threshold)
 
-        cmd = ensure_pymol()
-        with pymol_lock:
+        with pymol_session() as cmd:
             objects = cmd.get_object_list()
         if not objects:
             return "Error: No objects loaded"
@@ -67,6 +67,7 @@ def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
         return "\n\n".join(results)
 
     @mcp.tool()
+    @error_wrapper
     def compare_all() -> str:
         """Compare loaded structures by pLDDT — sorted table."""
         records = session.metrics.all_records()
@@ -96,6 +97,7 @@ def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @error_wrapper
     def cif_grep(tag: str, path: str = ".") -> str:
         """Search CIF files for a tag's value.
 

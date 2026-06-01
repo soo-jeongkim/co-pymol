@@ -11,6 +11,12 @@ from pathlib import Path
 import gemmi
 import numpy as np
 
+# Map AF3/MA-format `_ma_qa_metric.name` values to StructureRecord field names.
+GLOBAL_METRIC_MAP = {"pTM": "ptm", "ipTM": "iptm", "ranking_score": "ranking_score"}
+
+# AF3 Server stems look like `<base>_model_N`; capture (base, N) to find siblings.
+AF3_MODEL_STEM_RE = re.compile(r"(.+)_model_(\d+)$")
+
 
 @dataclass
 class StructureRecord:
@@ -76,10 +82,6 @@ class StructureRecord:
         if self.pae is not None:
             lines.append(f"  PAE: mean={float(np.nanmean(self.pae)):.1f} A")
         return "\n".join(lines)
-
-
-# Map AF3/MA-format `_ma_qa_metric.name` values to StructureRecord field names.
-GLOBAL_METRIC_MAP = {"pTM": "ptm", "ipTM": "iptm", "ranking_score": "ranking_score"}
 
 
 def metrics_from_cif(path: Path) -> dict:
@@ -158,30 +160,61 @@ def metrics_from_cif(path: Path) -> dict:
     return out
 
 
+def _af3_base_and_index(stem: str) -> tuple[str | None, str | None]:
+    """Split an AF3 Server `<base>_model_N` stem into (base, N), else (None, None)."""
+    af3 = AF3_MODEL_STEM_RE.match(stem)
+    return (af3.group(1), af3.group(2)) if af3 else (None, None)
+
+
+def get_pae_candidates(path: Path) -> list[Path]:
+    """Candidate PAE JSON siblings for a structure, in priority order.
+
+    AF3 Server names structures `<base>_model_N.cif` with sibling
+    `<base>_full_data_N.json` — a different stem, so plain `{stem}_*` patterns
+    miss it; we add the AF3 name explicitly when the stem matches.
+    """
+    parent, stem = path.parent, path.stem
+    af3_base, af3_n = _af3_base_and_index(stem)
+    candidates = []
+    if af3_base is not None:
+        candidates.append(parent / f"{af3_base}_full_data_{af3_n}.json")
+    candidates += [
+        parent / f"{stem}_pae.json",
+        parent / f"pae_{stem}.json",
+        parent / f"{stem}_full_data_0.json",
+    ]
+    return candidates
+
+
+def get_conf_candidates(path: Path) -> list[Path]:
+    """Candidate confidence JSON siblings for a structure, in priority order.
+
+    Only stem-specific siblings: bare-named confidence files (AF2's per-job
+    `ranking_debug.json`, `summary_confidences.json`) carry no stem, so in a
+    flat batch of unrelated predictions they would leak one job's ipTM/pTM onto
+    every other structure. We require the stem to disambiguate ownership. AF3's
+    `<base>_summary_confidences_N.json` is added explicitly when the stem matches.
+    """
+    parent, stem = path.parent, path.stem
+    af3_base, af3_n = _af3_base_and_index(stem)
+    candidates = []
+    if af3_base is not None:
+        candidates.append(parent / f"{af3_base}_summary_confidences_{af3_n}.json")
+    candidates += [
+        parent / f"{stem}_summary_confidences.json",
+        parent / f"{stem}_confidences.json",
+    ]
+    return candidates
+
+
 def find_sibling_json(path: Path) -> dict:
     """Search for PAE/confidence JSON files alongside the structure.
 
     Returns a dict that may contain: pae, iptm, ptm, ranking_score.
     """
-    parent = path.parent
-    stem = path.stem
     extra: dict = {}
 
-    # AF3 Server names structures `<base>_model_N.cif` with siblings
-    # `<base>_full_data_N.json` and `<base>_summary_confidences_N.json` —
-    # different stems, so plain `{stem}_*` patterns miss them.
-    af3 = re.match(r"(.+)_model_(\d+)$", stem)
-    af3_base, af3_n = (af3.group(1), af3.group(2)) if af3 else (None, None)
-
-    pae_candidates = []
-    if af3_base is not None:
-        pae_candidates.append(parent / f"{af3_base}_full_data_{af3_n}.json")
-    pae_candidates += [
-        parent / f"{stem}_pae.json",
-        parent / f"pae_{stem}.json",
-        parent / f"{stem}_full_data_0.json",
-    ]
-    for pae_path in pae_candidates:
+    for pae_path in get_pae_candidates(path):
         if not pae_path.exists():
             continue
         try:
@@ -202,16 +235,7 @@ def find_sibling_json(path: Path) -> dict:
                 extra["pae"] = np.array(pae)
         break
 
-    conf_candidates = []
-    if af3_base is not None:
-        conf_candidates.append(parent / f"{af3_base}_summary_confidences_{af3_n}.json")
-    conf_candidates += [
-        parent / f"{stem}_summary_confidences.json",
-        parent / "summary_confidences.json",
-        parent / "ranking_debug.json",
-        parent / f"{stem}_confidences.json",
-    ]
-    for conf_path in conf_candidates:
+    for conf_path in get_conf_candidates(path):
         if not conf_path.exists():
             continue
         try:
@@ -239,18 +263,18 @@ def find_sibling_json(path: Path) -> dict:
 
 
 def extract_record(path: Path, name: str | None = None) -> StructureRecord:
-    """Extract structure metadata using gemmi."""
+    """Extract structure metadata using gemmi.
+
+    Raises RuntimeError/ValueError if the file can't be parsed (gemmi) or has no
+    models — callers decide whether to surface or skip it.
+    """
     path = Path(path)
     if name is None:
         name = path.stem
 
-    try:
-        structure = gemmi.read_structure(str(path))
-    except (RuntimeError, ValueError):
-        return StructureRecord(name=name, path=path, chains=[], n_residues=0)
-
+    structure = gemmi.read_structure(str(path))
     if len(structure) == 0:
-        return StructureRecord(name=name, path=path, chains=[], n_residues=0)
+        raise ValueError(f"{path.name}: file has no models")
     model = structure[0]
 
     chain_order: list[str] = []
