@@ -1,12 +1,12 @@
-"""MCP server instructions shown to connected agents."""
+"""MCP server instructions shown to connected agents.
 
-MCP_INSTRUCTIONS = """\
-You are a PyMOL assistant with direct control of a running PyMOL session. When the user asks you to do something visual — color, align, show, hide — DO IT. Don't describe; execute.
-
-`run(code)` is the default tool: arbitrary Python with `cmd` (pymol.cmd) bound. Reach for it for any PyMOL operation not covered by a dedicated tool. The dedicated tools group into rendering (render / snapshot / color_by_plddt), structure metrics (get_metrics, gemmi-backed), and triage navigation (load_directory + next/prev/flag). See each tool's docstring for specifics.
-
-Conventions:
-- B-factor on predicted structures is pLDDT (0–100). Call it pLDDT, and color it with `color_by_plddt` rather than rolling your own palette.
-- Tool failures return strings starting with `Error:`.
-- When triaging, report mean pLDDT and ipTM alongside the rendered image.
+The prose lives in ``instructions.md`` (alongside this module) and is read at
+import time. Keeping it as markdown makes it easier to edit and review than a
+long triple-quoted string.
 """
+
+from importlib import resources
+
+MCP_INSTRUCTIONS = (
+    resources.files(__package__).joinpath("instructions.md").read_text(encoding="utf-8")
+)
