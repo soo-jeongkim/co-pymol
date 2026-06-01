@@ -1,4 +1,10 @@
-"""Tests for structure metrics (gemmi only — no PyMOL)."""
+"""Tests for structure metrics (gemmi only — no PyMOL).
+
+Unit tests for the parsing functions in ``pylot.core.metrics``: that each one
+returns the right values for AF2/AF3/plain fixtures and degrades gracefully on
+bad input. These exercise the functions in isolation — they are not an
+end-to-end test of the metric-extraction workflow.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +44,7 @@ class TestMetricsFromCif:
         assert m["iptm"] == pytest.approx(0.72)
         assert m["ranking_score"] == pytest.approx(0.87)
         assert m["pae"].shape == (2, 2)
-        assert m["pae"][0, 0] == pytest.approx(0.5)
+        assert m["pae"][0, 0] == pytest.approx(0.0)  # PAE diagonal is 0
         assert m["pae"][0, 1] == pytest.approx(2.5)
 
     def test_af2_cif_has_no_ma_qa_metrics(self) -> None:
@@ -46,18 +52,24 @@ class TestMetricsFromCif:
 
 
 class TestFindSiblingJson:
-    def test_af2_pae_and_confidence(self) -> None:
+    def test_af2_pae_from_stem_sibling_bare_ranking_ignored(self) -> None:
+        # PAE comes from the stem-specific `prediction_pae.json`. The ipTM/pTM
+        # live in a bare-named `ranking_debug.json` (no stem), which is
+        # intentionally NOT loaded — a bare file can't be tied to one structure,
+        # so in a flat batch it would leak onto unrelated predictions.
         extra = find_sibling_json(AF2_CIF)
         assert extra["pae"].shape == (4, 4)
-        assert extra["pae"][0, 0] == pytest.approx(0.5)
-        assert extra["iptm"] == pytest.approx(0.65)
-        assert extra["ptm"] == pytest.approx(0.78)
+        assert extra["pae"][0, 0] == pytest.approx(0.0)  # PAE diagonal is 0
+        assert extra["pae"][0, 1] == pytest.approx(3.0)  # off-diagonal: orientation
+        assert "iptm" not in extra
+        assert "ptm" not in extra
         assert "ranking_score" not in extra
 
     def test_af3_server_naming(self) -> None:
         extra = find_sibling_json(AF3_CIF)
         assert extra["pae"].shape == (2, 2)
-        assert extra["pae"][0, 0] == pytest.approx(9.0)
+        assert extra["pae"][0, 0] == pytest.approx(0.0)  # PAE diagonal is 0
+        assert extra["pae"][0, 1] == pytest.approx(8.0)  # off-diagonal: orientation
         assert extra["ptm"] == pytest.approx(0.5)
         assert extra["ranking_score"] == pytest.approx(0.4)
         assert "iptm" not in extra  # null in summary JSON
@@ -96,8 +108,10 @@ class TestExtractRecord:
         assert rec.plddt is not None
         np.testing.assert_allclose(rec.plddt, [40, 55, 85, 92])
         assert rec.mean_plddt == pytest.approx(68.0)
-        assert rec.ptm == pytest.approx(0.78)
-        assert rec.iptm == pytest.approx(0.65)
+        # ipTM/pTM come only from the bare `ranking_debug.json`, which is no
+        # longer auto-loaded (see test_af2_pae_from_stem_sibling_bare_ranking_ignored).
+        assert rec.ptm is None
+        assert rec.iptm is None
         assert rec.ranking_score is None
         assert rec.pae.shape == (4, 4)
 
@@ -107,18 +121,18 @@ class TestExtractRecord:
         assert rec.ptm == pytest.approx(0.88)
         assert rec.iptm == pytest.approx(0.72)
         assert rec.ranking_score == pytest.approx(0.87)
-        assert rec.pae[0, 0] == pytest.approx(0.5)
+        # cif's embedded PAE (off-diagonal 2.5) wins over the sibling JSON's 8.0.
+        assert rec.pae[0, 1] == pytest.approx(2.5)
 
     def test_custom_name(self) -> None:
         rec = extract_record(PLAIN_PDB, name="custom")
         assert rec.name == "custom"
 
-    def test_unreadable_cif_returns_empty_record(self, tmp_path: Path) -> None:
+    def test_unreadable_cif_raises(self, tmp_path: Path) -> None:
         bad = tmp_path / "nope.cif"
         bad.write_text("not mmcif")
-        rec = extract_record(bad)
-        assert rec.chains == []
-        assert rec.n_residues == 0
+        with pytest.raises((RuntimeError, ValueError)):
+            extract_record(bad)
 
 
 class TestFindLowConfidence:
