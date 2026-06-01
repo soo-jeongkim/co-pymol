@@ -7,11 +7,11 @@
 
 ## 00 the what
 
-★ `pylot` ★ is a pymol plugin that lets you use pymol through claude code and cursor agents.
+**`pylot`** is a pymol plugin that lets you use pymol through claude code and cursor agents.
 
 it turns PyMOL into an MCP server so you can drive PyMOL in English from any MCP client like Claude Code or Cursor, instead of typing PyMOL commands by hand. on startup, it spins up an MCP server — built on the official MCP Python SDK — inside PyMOL's own Python process, exposing the `pymol.cmd` API as tools.
 
-there's also a gemmi-backed metrics layer that can parse mmCIF e.g. if you want to read confidence values (pLDDT / ipTM / pTM / PAE). you can also drop in your own `.py` of ★ custom PyMOL presets / analysis ★ helpers and ask the agent to use them, and work over ★ SSHFS-mounted cluster paths ★ as usual. and since it runs through Claude Code you get ★ any Claude capabilities ★ here too — remote-control from the mobile app, etc.
+there's also a gemmi-backed metrics layer that can parse mmCIF e.g. if you want to read confidence values (pLDDT / ipTM / pTM / PAE). you can also drop in your own `.py` of **custom PyMOL presets / analysis** helpers and ask the agent to use them, and work over **SSHFS-mounted cluster paths** as usual. and since it runs through Claude Code you get **any Claude capabilities** here too — remote-control from the mobile app, etc.
 
 an example session in Claude Code / Cursor:
 
@@ -29,15 +29,15 @@ model_3 — ipTM 0.41 (others are 0.7+).
 
 ## 01 the why
 
-★ vibe coding
-★ automating analysis or visualisation with agents
-★ remote access on mobile
+- vibe coding
+- automating analysis or visualisation with agents
+- remote access on mobile
 
 ## 02 installing
 
 note: only tested on macOS :/ linux / conda / non-standard installs should work in principle — the recipe is just "install into PyMOL's bundled Python" — but i haven't verified them.
 
-the plugin installs into ★ PyMOL's bundled Python ★, not your system Python.
+the plugin installs into **PyMOL's bundled Python**, not your system Python.
 
 **1. clone and install**
 
@@ -71,7 +71,7 @@ by default the server binds `127.0.0.1:8766` (loopback) — PyMOL and your MCP c
 
 both setups are global — every Cursor window or Claude Code session sees the `pymol` server, no need to `cd` into this repo.
 
-★ cursor
+**cursor**
 
 ```bash
 /Applications/PyMOL.app/Contents/bin/python -m pylot.cli install-config
@@ -79,10 +79,10 @@ both setups are global — every Cursor window or Claude Code session sees the `
 
 writes/merges `~/.cursor/mcp.json`. fully quit Cursor (`Cmd+Q`, not just close the window) and reopen; verify under Settings → Cursor Settings → MCP that `pymol` is listed.
 
-★ claude code
+**claude code**
 
 ```bash
-claude mcp add --transport sse --scope user pymol http://localhost:8766/sse
+claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse
 ```
 
 works from any directory. `claude mcp list` should show `pymol`.
@@ -99,7 +99,7 @@ once correct plumbing is verified, you need to open PyMOL first then a new Curso
    - "align model_0 onto model_1; what's the RMSD?"
    - "look at `~/scripts/my_pymol_helpers.py` — apply the publication-style view to all objects"
 
-want sample data? ★ click [here](https://500.kim/resources/pizza-and-pymol.zip) ★ to download a few sample CIF files (AF3 predictions, antibodies, multi-domain proteins) to play with.
+want sample data? **[click here](https://500.kim/resources/pizza-and-pymol.zip)** to download a few sample CIF files (AF3 predictions, antibodies, multi-domain proteins) to play with.
 
 ## 04 uninstalling
 
@@ -138,8 +138,8 @@ a full quit + relaunch. the `MCP server running on...` line should be gone. the 
 
 ## 05 notes
 
-★ `get_metrics` and `path` — structures loaded via `load_directory` have metrics automatically. if you load with `run("cmd.load('foo.cif')")`, pass `path` to `get_metrics` or `find_low_confidence`.
+- **`get_metrics` and `path`** — structures loaded via `load_directory` have metrics automatically. if you load with `run("cmd.load('foo.cif')")`, pass `path` to `get_metrics` or `find_low_confidence`.
 
-★ `run()` security — executes locally with restricted Python builtins (no imports / file I/O), but full PyMOL access via `cmd`. only connect trusted MCP clients.
+- **`run()` security** — executes locally with restricted Python builtins (no imports / file I/O), but full PyMOL access via `cmd`. only connect trusted MCP clients.
 
-★ dev setup (optional) — `pip install -e ".[dev]" && pytest`. pre-commit hooks are available but not required — see `.pre-commit-config.yaml`.
+- **dev setup (optional)** — `pip install -e ".[dev]" && pytest`. pre-commit hooks are available but not required — see `.pre-commit-config.yaml`.
