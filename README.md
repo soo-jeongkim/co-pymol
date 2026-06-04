@@ -1,6 +1,6 @@
 # pylot
 
-fyi — this repo is an active WIP!
+this repo is an active WIP!
 
 ## the what
 
