@@ -70,7 +70,7 @@ def my_new_tool(arg: str) -> str:
 
 ### Dependencies
 
-- `mcp>=1.10` — official MCP Python SDK; we use its bundled `mcp.server.fastmcp.FastMCP` (no standalone `fastmcp` package)
+- `mcp~=1.27.1` — official MCP Python SDK; we use its bundled `mcp.server.fastmcp.FastMCP` (no standalone `fastmcp` package). Pinned tight on purpose — MCP is pylot's network-facing trust boundary and `FastMCP` has had API churn between minors; bump the pin deliberately, not opportunistically.
 - `gemmi>=0.6` — mmCIF/PDB parsing for metrics (atom data + AF3 `_ma_qa_metric_*`)
 - `numpy` — array ops for pLDDT/PAE in metrics
 - PyMOL — **not a pip dependency**, install the app from pymol.org. Install this plugin into PyMOL's Python: `/Applications/PyMOL.app/Contents/bin/python -m pip install --user -e .`
