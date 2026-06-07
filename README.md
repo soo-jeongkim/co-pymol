@@ -2,8 +2,6 @@
 
 *Drive PyMOL in plain English — from Claude Code, Cursor, or your phone.*
 
-This repo is an active WIP!
-
 **`pylot`** is a PyMOL plugin that turns PyMOL into an MCP server, so you can drive it in English from any MCP client (Claude Code, Cursor) instead of typing PyMOL commands by hand. On startup it spins up an MCP server — built on the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) — inside PyMOL's own Python process, exposing the `pymol.cmd` API as tools, so you can:
 
 - **Automate analysis and visualisation** with an agent instead of doing it by hand
