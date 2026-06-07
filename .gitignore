@@ -7,6 +7,3 @@ build/
 CLAUDE.md
 .DS_Store
 pylot/test/
-
-# Demo videos — hosted on GitHub user-attachments CDN, not in the repo
-docs/media/*.mov
