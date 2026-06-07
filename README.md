@@ -35,6 +35,8 @@ note: only tested on macOS :/ linux / conda / non-standard installs should work 
 
 the plugin installs into **PyMOL's bundled Python**, not your system Python.
 
+> fyi: if you'd rather have a coding agent (Claude Code, Cursor, Codex, etc.) walk through the install for you, point it at [`AGENTS.md`](./AGENTS.md) — it's the same recipe written for an agent to execute.
+
 **1. clone and install**
 
 ```bash
