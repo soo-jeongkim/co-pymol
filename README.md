@@ -97,39 +97,6 @@ once correct plumbing is verified, you need to open PyMOL first then a new Curso
 
 want sample data? **[click here](https://500.kim/resources/pizza-and-pymol.zip)** to download a few sample CIF files (AF3 predictions, antibodies, multi-domain proteins) to play with.
 
-## remote files (sshfs)
-
-if your structures live on a cluster, the simplest shape is **pymol running locally + the remote dir mounted on your mac with sshfs**. point pymol at the mount path and nothing in `pylot` changes — it's just a filesystem path as far as the plugin is concerned.
-
-rough recipe:
-
-1. install [macFUSE](https://macfuse.github.io/) and an `sshfs` binary (the original osxfuse build still works; otherwise use whatever flavor you already have).
-
-2. mount the remote dir:
-
-   ```bash
-   mkdir -p ~/cluster
-   sshfs user@host:/path/to/predictions ~/cluster \
-     -o reconnect,defer_permissions,follow_symlinks
-   ```
-
-3. talk to pymol against the mount path:
-
-   ```
-   > load all the CIF files in ~/cluster/predictions/run42/, sorted by ipTM
-   ```
-
-a few caveats:
-
-- **only this exact shape (local pymol GUI on mac + sshfs-mounted remote dir) is what i've actually tested.** other configurations should work in principle since the plugin only sees a filesystem path, but i haven't verified any of them:
-  - pymol running headlessly (`pymol -cq`) on a remote box, MCP tunneled back via `ssh -L`
-  - pymol on a devbox over X11 forwarding
-  - fuse-alternatives like rclone mount
-
-  holler if your setup breaks.
-- large directories load slowly — it's still ssh under the hood. expect the first `load` of many big CIFs to take a while.
-- if the ssh link drops mid-session, pymol calls touching the mount will hang until it reconnects. `umount ~/cluster` + remount if it gets stuck.
-
 ## 04 uninstalling
 
 reverses the install steps. there's no `uninstall` subcommand, so the config edits are manual — they're one line each.
