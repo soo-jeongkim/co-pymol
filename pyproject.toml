@@ -1,12 +1,12 @@
 [project]
 name = "pylot"
-version = "0.1.0"
+version = "0.1.1"
 description = "PyMOL plugin that exposes PyMOL as MCP tools for Claude Code and Claude mobile"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.10",
+    "mcp~=1.27.1",
     "numpy>=1.24",
     "gemmi>=0.6",
 ]
