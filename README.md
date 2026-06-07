@@ -90,6 +90,10 @@ Works from any directory. `claude mcp list` should show `pymol`.
 
 Once the plumbing is verified, open PyMOL first, *then* a new Cursor window / Claude Code session.
 
+**5. Confirm the agent is talking to PyMOL**
+
+Ask the agent something like *"are you connected to PyMOL? what version is loaded?"* — if it calls a `pymol` tool (e.g. `get_version`) and reports back a real answer, you're wired up. If it says it can't see PyMOL or doesn't have any `pymol` tools, the MCP client isn't actually connected — re-check step 4 and make sure you opened a *new* session after wiring it up.
+
 ## Experimenting!
 
 1. Open PyMOL (the MCP server auto-starts).
