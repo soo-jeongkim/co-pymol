@@ -1,6 +1,6 @@
-# Contributing to pylot
+# Contributing to co-pymol
 
-Thanks for the interest! pylot is an active WIP maintained by one person, so a quick issue before a big PR genuinely saves us both time.
+Thanks for the interest! co-pymol is an active WIP maintained by one person, so a quick issue before a big PR genuinely saves us both time.
 
 ## Scope
 
@@ -40,7 +40,7 @@ Lint/format is `ruff` (config in `pyproject.toml`).
 
 - One logical change per PR.
 - Run `pytest` and `pre-commit run --all-files` locally before pushing.
-- If you're adding or renaming a tool, update `src/pylot/instructions.md` when its existence changes how agents should behave — that file is what the server pushes to every connected client.
+- If you're adding or renaming a tool, update `src/co_pymol/instructions.md` when its existence changes how agents should behave — that file is what the server pushes to every connected client.
 
 ## Reporting bugs
 
@@ -49,4 +49,4 @@ Open a GitHub issue with:
 - PyMOL version (`pymol -c -q -k -e 'print(cmd.get_version())'`, or check the splash screen)
 - MCP client (Claude Code / Cursor / other) and its version
 - OS and PyMOL install path
-- The `pylot: MCP server running on...` line from the PyMOL console — or a note that it's missing
+- The `co-pymol: MCP server running on...` line from the PyMOL console — or a note that it's missing

@@ -1,4 +1,4 @@
-"""CLI for pylot setup and diagnostics.
+"""CLI for co-pymol setup and diagnostics.
 
 Subcommands:
     install-hook       Append the plugin startup line to ~/.pymolrc.py
@@ -17,10 +17,10 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from pylot.constants import DEFAULT_HOST, DEFAULT_PORT
+from co_pymol.constants import DEFAULT_HOST, DEFAULT_PORT
 
-PYMOLRC_SENTINEL = "# pylot: auto-start MCP server on PyMOL launch"
-PYMOLRC_LINE = "from pylot import __init_plugin__; __init_plugin__()"
+PYMOLRC_SENTINEL = "# co-pymol: auto-start MCP server on PyMOL launch"
+PYMOLRC_LINE = "from co_pymol import __init_plugin__; __init_plugin__()"
 
 
 def server_url(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> str:
@@ -93,8 +93,8 @@ def cmd_install_config(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pylot",
-        description="pylot setup and diagnostics",
+        prog="co-pymol",
+        description="co-pymol setup and diagnostics",
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 

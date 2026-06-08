@@ -7,11 +7,11 @@ from pathlib import Path
 import gemmi
 from mcp.server.fastmcp import FastMCP
 
-from pylot.core.metrics import StructureRecord
-from pylot.core.metrics import find_low_confidence as find_low
-from pylot.core.session import AppSession
-from pylot.tools.errors import error_wrapper
-from pylot.utils.pymol.helper import pymol_session
+from co_pymol.core.metrics import StructureRecord
+from co_pymol.core.metrics import find_low_confidence as find_low
+from co_pymol.core.session import AppSession
+from co_pymol.tools.errors import error_wrapper
+from co_pymol.utils.pymol.helper import pymol_session
 
 
 def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:

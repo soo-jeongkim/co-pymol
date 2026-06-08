@@ -1,4 +1,4 @@
-"""Shared constants for pylot."""
+"""Shared constants for co-pymol."""
 
 DEFAULT_PORT = 8766
 DEFAULT_HOST = "127.0.0.1"

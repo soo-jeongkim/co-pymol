@@ -1,6 +1,6 @@
 """Tests for structure metrics (gemmi only — no PyMOL).
 
-Unit tests for the parsing functions in ``pylot.core.metrics``: that each one
+Unit tests for the parsing functions in ``co_pymol.core.metrics``: that each one
 returns the right values for AF2/AF3/plain fixtures and degrades gracefully on
 bad input. These exercise the functions in isolation — they are not an
 end-to-end test of the metric-extraction workflow.
@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pylot.core.metrics import (
+from co_pymol.core.metrics import (
     StructureRecord,
     extract_record,
     find_low_confidence,

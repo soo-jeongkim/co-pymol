@@ -7,8 +7,8 @@ from contextlib import redirect_stdout
 
 from mcp.server.fastmcp import FastMCP
 
-from pylot.tools.errors import error_wrapper
-from pylot.utils.pymol.helper import pymol_session
+from co_pymol.tools.errors import error_wrapper
+from co_pymol.utils.pymol.helper import pymol_session
 
 
 def register_run_tool(mcp: FastMCP) -> None:

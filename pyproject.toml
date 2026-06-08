@@ -1,5 +1,5 @@
 [project]
-name = "pylot"
+name = "co-pymol"
 version = "0.1.1"
 description = "PyMOL plugin that exposes PyMOL as MCP tools for Claude Code and Claude mobile"
 readme = "README.md"
@@ -19,7 +19,7 @@ dev = [
 ]
 
 [project.scripts]
-pylot = "pylot.cli:main"
+co-pymol = "co_pymol.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -36,7 +36,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 quote-style = "double"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pylot"]
+packages = ["src/co_pymol"]
 
 [build-system]
 requires = ["hatchling"]

@@ -1,4 +1,4 @@
-"""PyMOL plugin entry point for pylot.
+"""PyMOL plugin entry point for co-pymol.
 
 Exposes PyMOL's Python API as an MCP server so any MCP client
 (Cursor, Claude Code, Claude Desktop, etc.) can drive PyMOL.
@@ -10,8 +10,8 @@ import socket
 import threading
 from types import SimpleNamespace
 
-from pylot.cli import server_url
-from pylot.constants import DEFAULT_HOST, DEFAULT_PORT
+from co_pymol.cli import server_url
+from co_pymol.constants import DEFAULT_HOST, DEFAULT_PORT
 
 state = SimpleNamespace(thread=None)
 
@@ -33,15 +33,15 @@ def start_mcp(port: int | str = DEFAULT_PORT, host: str = DEFAULT_HOST):
     # from the command line after __init_plugin__ already auto-started it. This
     # guards the same-process re-run; a *different* PyMOL is caught by the bind below.
     if state.thread is not None and state.thread.is_alive():
-        print("pylot: MCP server is already running")
+        print("co-pymol: MCP server is already running")
         return
 
     # PyMOL-specific constraint: mcp/uvicorn (like pymol) only exist inside PyMOL's
     # bundled interpreter, so these imports are function-local — at module level
-    # they'd break `import pylot` under the plain Python the stdlib-only CLI uses.
+    # they'd break `import co_pymol` under the plain Python the stdlib-only CLI uses.
     import uvicorn
 
-    from pylot.server import create_server
+    from co_pymol.server import create_server
 
     # PyMOL's command extension passes all args as strings (`start_mcp 9000`).
     port = int(port)
@@ -62,7 +62,7 @@ def start_mcp(port: int | str = DEFAULT_PORT, host: str = DEFAULT_HOST):
     except OSError as err:
         sock.close()
         print(
-            f"pylot: can't bind {host}:{port} ({err}). Another PyMOL/pylot may "
+            f"co-pymol: can't bind {host}:{port} ({err}). Another PyMOL/co-pymol may "
             f"already be running there — try `start_mcp <port>` with a free port."
         )
         return
@@ -84,4 +84,4 @@ def start_mcp(port: int | str = DEFAULT_PORT, host: str = DEFAULT_HOST):
         sock.close()
         raise
 
-    print(f"pylot: MCP server running on {server_url(host, port)}")
+    print(f"co-pymol: MCP server running on {server_url(host, port)}")

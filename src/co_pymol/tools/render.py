@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP, Image
 
-from pylot.tools.errors import error_wrapper
-from pylot.utils.pymol.helper import pymol_session
-from pylot.utils.pymol.render import apply_plddt_palette, render_image
+from co_pymol.tools.errors import error_wrapper
+from co_pymol.utils.pymol.helper import pymol_session
+from co_pymol.utils.pymol.render import apply_plddt_palette, render_image
 
 
 def register_render_tools(mcp: FastMCP) -> None:

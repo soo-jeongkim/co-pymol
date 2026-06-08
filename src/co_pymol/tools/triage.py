@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP, Image
 
-from pylot.core.session import AppSession
-from pylot.core.triage_view import triage_render
-from pylot.tools.errors import error_wrapper
-from pylot.utils.pymol.helper import pymol_session
+from co_pymol.core.session import AppSession
+from co_pymol.core.triage_view import triage_render
+from co_pymol.tools.errors import error_wrapper
+from co_pymol.utils.pymol.helper import pymol_session
 
 
 def register_triage_tools(mcp: FastMCP, session: AppSession) -> None:

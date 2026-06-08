@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import Image
 
-from pylot.utils.pymol.render import apply_plddt_palette, render_image
+from co_pymol.utils.pymol.render import apply_plddt_palette, render_image
 
 
 def triage_render(cmd, path: Path, width: int = 800, height: int = 600) -> Image:

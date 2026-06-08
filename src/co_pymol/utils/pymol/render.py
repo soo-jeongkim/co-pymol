@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import Image
 
-from pylot.constants import (
+from co_pymol.constants import (
     PLDDT_PALETTE,
     RENDER_POLL_ATTEMPTS,
     RENDER_POLL_INTERVAL_S,

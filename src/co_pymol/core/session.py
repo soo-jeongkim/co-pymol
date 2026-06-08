@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pylot.core.metrics import StructureRecord, extract_record
-from pylot.core.triage import TriageState
+from co_pymol.core.metrics import StructureRecord, extract_record
+from co_pymol.core.triage import TriageState
 
 
 class MetricsRegistry:

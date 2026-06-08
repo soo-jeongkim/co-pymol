@@ -21,8 +21,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pylot.core.session import AppSession
-from pylot.core.triage import TriageState
+from co_pymol.core.session import AppSession
+from co_pymol.core.triage import TriageState
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -169,7 +169,7 @@ class TestRegistrySync:
             assert session.record_for_obj(stem) is not None
 
     def test_compare_all_ordering_by_plddt(self, eval_dir: Path) -> None:
-        from pylot.core.metrics import StructureRecord
+        from co_pymol.core.metrics import StructureRecord
 
         session = AppSession()
         session.triage.load_directory(eval_dir)
