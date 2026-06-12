@@ -3,7 +3,7 @@
 DEFAULT_PORT = 8766
 DEFAULT_HOST = "127.0.0.1"
 
-PLDDT_PALETTE = "red_yellow_green_cyan_blue"
+PLDDT_PALETTE = "0xFF7D45 0xFFDB13 0x65CBF3 0x0053D6"
 STRUCTURE_EXTENSIONS = {".cif", ".mmcif", ".pdb", ".ent"}
 
 RENDER_POLL_ATTEMPTS = 50
