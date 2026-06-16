@@ -13,9 +13,9 @@ def register_render_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     @error_wrapper
     def color_by_plddt(selection: str = "all") -> str:
-        """Color by pLDDT (B-factor 0–100) with the project palette.
+        """Color by pLDDT (B-factor 0–100) with discrete AlphaFold bins.
 
-        Blue = high confidence, red = low.
+        Blue ≥90, cyan 70–90, yellow 50–70, orange <50.
         """
         with pymol_session() as cmd:
             apply_plddt_palette(cmd, selection)
