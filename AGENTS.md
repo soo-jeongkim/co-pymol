@@ -121,7 +121,7 @@ Ask which client (or check the environment). There are two transports — **defa
 
 - **Claude Code (proxy, recommended):**
   ```bash
-  claude mcp add --scope user pymol -- $PYMOL_PYTHON -m co_pymol.proxy
+  claude mcp add --scope user pymol -- $PYMOL_PYTHON -m co_pymol proxy
   ```
   Verify with `claude mcp list`. *(Direct SSE alternative: `claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse`.)*
 
@@ -132,7 +132,7 @@ Ask which client (or check the environment). There are two transports — **defa
     "mcpServers": {
       "pymol": {
         "command": "/Applications/PyMOL.app/Contents/bin/python",
-        "args": ["-m", "co_pymol.proxy"]
+        "args": ["-m", "co_pymol", "proxy"]
       }
     }
   }
@@ -163,7 +163,7 @@ That only proves the port is open. For a real end-to-end check, have the user as
 
 - **No `MCP server running on...` line in PyMOL console** — `~/.pymolrc.py` isn't being loaded. Check `echo $HOME` matches where the file lives, and confirm the user did a full quit + relaunch.
 - **`pip install` fails with "externally-managed-environment"** — you used the system Python, not PyMOL's. Re-check the interpreter path.
-- **Port 8766 already in use** — another PyMOL instance is running, or the user wants a different port. They can run `start_mcp <port>` from the PyMOL command line; point the client at the matching port. For the proxy, append `--port <port>` (and `--host <host>` if non-loopback) to the `-m co_pymol.proxy` command. For direct SSE, use `install-config --host <host> --port <port>` (Cursor) or re-run `claude mcp add` with the new URL (Claude Code).
+- **Port 8766 already in use** — another PyMOL instance is running, or the user wants a different port. They can run `start_mcp <port>` from the PyMOL command line; point the client at the matching port. For the proxy, append `--port <port>` (and `--host <host>` if non-loopback) to the `-m co_pymol proxy` command. For direct SSE, use `install-config --host <host> --port <port>` (Cursor) or re-run `claude mcp add` with the new URL (Claude Code).
 - **Client running on a different machine than PyMOL** — the server binds loopback by default. The user must run `start_mcp 8766, 0.0.0.0` in PyMOL and point the client at the PyMOL host's IP.
 
 ### What NOT to do

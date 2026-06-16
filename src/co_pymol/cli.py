@@ -24,7 +24,7 @@ PYMOLRC_SENTINEL = "# co-pymol: auto-start MCP server on PyMOL launch"
 PYMOLRC_LINE = "from co_pymol import __init_plugin__; __init_plugin__()"
 
 
-def server_url(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> str:
+def server_url(host: str, port: int) -> str:
     """The SSE endpoint a client connects to for a server at host:port."""
     return f"http://{host}:{port}/sse"
 
@@ -43,14 +43,15 @@ def load_config(path: Path) -> dict:
 def pymol_server_entry(host: str, port: int, use_sse: bool) -> dict:
     """The `pymol` mcpServers entry: the restart-surviving proxy, or direct SSE.
 
-    The proxy entry launches `-m co_pymol.proxy` under *this* interpreter
+    The proxy entry launches `-m co_pymol proxy` under *this* interpreter
     (`sys.executable`) — the one co-pymol and its deps are installed in, which is
-    exactly what the proxy needs. host/port are only emitted when non-default.
+    exactly what the proxy needs. This routes through the same CLI as the
+    `co-pymol proxy` command. host/port are only emitted when non-default.
     """
     if use_sse:
         return {"url": server_url(host, port)}
 
-    args = ["-m", "co_pymol.proxy"]
+    args = ["-m", "co_pymol", "proxy"]
     if host != DEFAULT_HOST:
         args += ["--host", host]
     if port != DEFAULT_PORT:
@@ -125,6 +126,21 @@ def cmd_install_config(args: argparse.Namespace) -> None:
         print("Restart Cursor to pick up the change.")
 
 
+def add_server_opts(parser: argparse.ArgumentParser) -> None:
+    """Add the shared --host/--port options locating the co-pymol SSE server."""
+    parser.add_argument(
+        "--host",
+        default=DEFAULT_HOST,
+        help=f"co-pymol SSE host (default: {DEFAULT_HOST})",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_PORT,
+        help=f"co-pymol SSE port (default: {DEFAULT_PORT})",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="co-pymol",
@@ -168,17 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write the direct SSE url entry instead of the restart-surviving proxy",
     )
-    p_install.add_argument(
-        "--host",
-        default=DEFAULT_HOST,
-        help=f"MCP server host (default: {DEFAULT_HOST})",
-    )
-    p_install.add_argument(
-        "--port",
-        type=int,
-        default=DEFAULT_PORT,
-        help=f"MCP server port (default: {DEFAULT_PORT})",
-    )
+    add_server_opts(p_install)
     p_install.set_defaults(func=cmd_install_config)
 
     p_proxy = sub.add_parser(
@@ -192,17 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
             "`claude mcp add pymol -- co-pymol proxy`."
         ),
     )
-    p_proxy.add_argument(
-        "--host",
-        default=DEFAULT_HOST,
-        help=f"co-pymol SSE host (default: {DEFAULT_HOST})",
-    )
-    p_proxy.add_argument(
-        "--port",
-        type=int,
-        default=DEFAULT_PORT,
-        help=f"co-pymol SSE port (default: {DEFAULT_PORT})",
-    )
+    add_server_opts(p_proxy)
     p_proxy.set_defaults(func=cmd_proxy)
 
     return parser

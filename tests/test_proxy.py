@@ -26,29 +26,24 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 import anyio
-from mcp.shared.message import SessionMessage
 from mcp.types import (
-    JSONRPCMessage,
     JSONRPCNotification,
     JSONRPCRequest,
     JSONRPCResponse,
 )
 
 from co_pymol.proxy import Proxy
+from co_pymol.utils.jsonrpc import envelope
 
 PROTOCOL = "2025-06-18"
 
 
-def _msg(root) -> SessionMessage:
-    return SessionMessage(message=JSONRPCMessage(root))
-
-
-def _text(response: JSONRPCResponse) -> str:
+def text(response: JSONRPCResponse) -> str:
     """The text payload of a CallToolResult-shaped response."""
     return response.result["content"][0]["text"]
 
 
-def _tool_names(response: JSONRPCResponse) -> list[str]:
+def tool_names(response: JSONRPCResponse) -> list[str]:
     return sorted(t["name"] for t in response.result["tools"])
 
 
@@ -68,11 +63,22 @@ class FakeDownstream:
         self.connections = 0  # total connects seen (instance counter)
         self.accept = True  # False => connect() raises (PyMOL down)
         self.answer_calls = True  # False => tools/call is swallowed (hangs)
-        self._current_kill = None  # set() drops the live connection
+        self.current_kill = None  # set() drops the live connection
+        self.current_p2s_recv = None  # proxy->server channel (the "write" path)
 
     def kill(self) -> None:
-        if self._current_kill is not None:
-            self._current_kill.set()
+        if self.current_kill is not None:
+            self.current_kill.set()
+
+    async def break_write_only(self) -> None:
+        """Close the proxy->server (write) channel; the read stream stays open.
+
+        Models SSE where the POST path fails but the GET stream is still alive:
+        the proxy's dn_write.send() raises while dn_read keeps flowing, so the
+        manager's read-side teardown never fires.
+        """
+        if self.current_p2s_recv is not None:
+            await self.current_p2s_recv.aclose()
 
     @asynccontextmanager
     async def connect(self):
@@ -85,26 +91,27 @@ class FakeDownstream:
         s2p_send, s2p_recv = anyio.create_memory_object_stream(100)
         p2s_send, p2s_recv = anyio.create_memory_object_stream(100)
         kill = anyio.Event()
-        self._current_kill = kill
+        self.current_kill = kill
+        self.current_p2s_recv = p2s_recv
 
         async with anyio.create_task_group() as tg:
-            tg.start_soon(self._respond, instance, p2s_recv, s2p_send)
+            tg.start_soon(self.respond, instance, p2s_recv, s2p_send)
 
-            async def _killer():
+            async def killer():
                 await kill.wait()
                 await s2p_send.aclose()  # EOF on the proxy's dn_read => it drops us
                 tg.cancel_scope.cancel()
 
-            tg.start_soon(_killer)
+            tg.start_soon(killer)
             try:
                 yield s2p_recv, p2s_send
             finally:
                 tg.cancel_scope.cancel()
 
-    async def _respond(self, instance, p2s_recv, s2p_send) -> None:
+    async def respond(self, instance, p2s_recv, s2p_send) -> None:
         async def reply(req_id, result):
             await s2p_send.send(
-                _msg(JSONRPCResponse(jsonrpc="2.0", id=req_id, result=result))
+                envelope(JSONRPCResponse(jsonrpc="2.0", id=req_id, result=result))
             )
 
         try:
@@ -153,7 +160,7 @@ class FakeDownstream:
                     )
                 else:
                     await reply(root.id, {})
-        except anyio.EndOfStream:
+        except (anyio.EndOfStream, anyio.ClosedResourceError):
             pass
 
 
@@ -166,32 +173,32 @@ class ProxyClient:
     """
 
     def __init__(self, send, recv) -> None:
-        self._send = send
-        self._recv = recv
-        self._id = 0
-        self._waiters: dict[int, anyio.Event] = {}
-        self._results: dict[int, object] = {}
+        self.send = send
+        self.recv = recv
+        self.id = 0
+        self.waiters: dict[int, anyio.Event] = {}
+        self.results: dict[int, object] = {}
         self.notifications: list[JSONRPCNotification] = []
 
     async def pump(self) -> None:
-        async for item in self._recv:
+        async for item in self.recv:
             root = item.message.root
             if isinstance(root, JSONRPCNotification):
                 self.notifications.append(root)
                 continue
             rid = getattr(root, "id", None)
             if rid is not None:
-                self._results[rid] = root
-                ev = self._waiters.get(rid)
+                self.results[rid] = root
+                ev = self.waiters.get(rid)
                 if ev is not None:
                     ev.set()
 
     async def send_request(self, method, params=None) -> int:
-        self._id += 1
-        rid = self._id
-        self._waiters[rid] = anyio.Event()
-        await self._send.send(
-            _msg(
+        self.id += 1
+        rid = self.id
+        self.waiters[rid] = anyio.Event()
+        await self.send.send(
+            envelope(
                 JSONRPCRequest(
                     jsonrpc="2.0", id=rid, method=method, params=params or {}
                 )
@@ -201,15 +208,17 @@ class ProxyClient:
 
     async def await_result(self, rid, timeout=5):
         with anyio.fail_after(timeout):
-            await self._waiters[rid].wait()
-        return self._results.pop(rid)
+            await self.waiters[rid].wait()
+        return self.results.pop(rid)
 
     async def request(self, method, params=None, timeout=5):
         return await self.await_result(await self.send_request(method, params), timeout)
 
     async def notify(self, method, params=None) -> None:
-        await self._send.send(
-            _msg(JSONRPCNotification(jsonrpc="2.0", method=method, params=params or {}))
+        await self.send.send(
+            envelope(
+                JSONRPCNotification(jsonrpc="2.0", method=method, params=params or {})
+            )
         )
 
     async def initialize(self):
@@ -225,14 +234,14 @@ class ProxyClient:
         return resp
 
 
-async def _settle(predicate, timeout=5):
+async def settle(predicate, timeout=5):
     """Wait until `predicate()` is true (deterministic, no fixed sleeps)."""
     with anyio.fail_after(timeout):
         while not predicate():
             await anyio.sleep(0.005)
 
 
-async def _drive(body):
+async def drive(body):
     """Run `body(client, fake, proxy)` with a wired proxy/fake/client triad."""
     fake = FakeDownstream()
     # Tiny timeouts so the reconnect/backoff loop runs fast in tests.
@@ -248,12 +257,12 @@ async def _drive(body):
     client = ProxyClient(c2p_send, p2c_recv)
 
     async with anyio.create_task_group() as tg:
-        tg.start_soon(proxy._serve, c2p_recv, p2c_send, False)
+        tg.start_soon(proxy.serve, c2p_recv, p2c_send, False)
         tg.start_soon(client.pump)
         try:
             await body(client, fake, proxy)
         finally:
-            await c2p_send.aclose()  # upstream EOF -> proxy._serve returns
+            await c2p_send.aclose()  # upstream EOF -> proxy.serve returns
             tg.cancel_scope.cancel()
 
 
@@ -264,12 +273,12 @@ class TestConnectedParity:
             # initialize is answered from the real downstream's cached result.
             assert init.result["serverInfo"]["name"] == "fake-pymol"
             tools = await client.request("tools/list")
-            assert _tool_names(tools) == ["echo", "render"]
+            assert tool_names(tools) == ["echo", "render"]
             call = await client.request("tools/call", {"name": "echo", "arguments": {}})
             assert call.result["isError"] is False
-            assert "instance=1" in _text(call)
+            assert "instance=1" in text(call)
 
-        anyio.run(_drive, body)
+        anyio.run(drive, body)
 
 
 class TestReconnectAcrossRestart:
@@ -281,12 +290,12 @@ class TestReconnectAcrossRestart:
             first = await client.request(
                 "tools/call", {"name": "echo", "arguments": {}}
             )
-            assert "instance=1" in _text(first)
+            assert "instance=1" in text(first)
 
             fake.kill()  # PyMOL quits
-            await _settle(lambda: proxy.dn_write is None)
-            await _settle(lambda: fake.connections >= 2)  # PyMOL relaunched
-            await _settle(lambda: proxy.dn_write is not None)
+            await settle(lambda: proxy.dn_write is None)
+            await settle(lambda: fake.connections >= 2)  # PyMOL relaunched
+            await settle(lambda: proxy.dn_write is not None)
 
             # No re-initialize from the client — the proxy replayed it. The result
             # comes from instance 2, proving the new session was adopted (not a
@@ -295,22 +304,22 @@ class TestReconnectAcrossRestart:
                 "tools/call", {"name": "echo", "arguments": {}}
             )
             assert second.result["isError"] is False
-            assert "instance=2" in _text(second)
+            assert "instance=2" in text(second)
 
-        anyio.run(_drive, body)
+        anyio.run(drive, body)
 
     def test_client_never_sees_a_second_initialize(self) -> None:
         async def body(client, fake, proxy):
             await client.initialize()
             fake.kill()
-            await _settle(lambda: fake.connections >= 2)
-            await _settle(lambda: proxy.dn_write is not None)
+            await settle(lambda: fake.connections >= 2)
+            await settle(lambda: proxy.dn_write is not None)
             await client.request("tools/call", {"name": "echo", "arguments": {}})
             # The replayed initialize is consumed by the proxy; the client only
             # ever issued one and is never asked to handshake again.
             assert proxy.cached_init_result is not None
 
-        anyio.run(_drive, body)
+        anyio.run(drive, body)
 
 
 class TestInFlightCallAtDrop:
@@ -325,7 +334,7 @@ class TestInFlightCallAtDrop:
                 "tools/call", {"name": "echo", "arguments": {}}
             )
             # Wait until the proxy has forwarded it (it's now genuinely in flight).
-            await _settle(lambda: rid in proxy.outstanding)
+            await settle(lambda: rid in proxy.outstanding)
 
             fake.kill()  # PyMOL dies with the call outstanding
 
@@ -333,7 +342,36 @@ class TestInFlightCallAtDrop:
             assert isinstance(resp, JSONRPCResponse)
             assert resp.result["isError"] is True
 
-        anyio.run(_drive, body)
+        anyio.run(drive, body)
+
+
+class TestWriteSideBreaks:
+    """A forward send failing must fail the request back, not hang.
+
+    SSE's POST (write) path is independent of the GET (read) stream, so a send
+    can fail while the read side stays open — meaning the manager's read-side
+    teardown never runs. The proxy must fail the orphaned request itself.
+    """
+
+    def test_request_errors_when_only_write_breaks(self) -> None:
+        async def body(client, fake, proxy):
+            await client.initialize()
+            await settle(lambda: proxy.dn_write is not None)  # handshake landed
+
+            # Break ONLY the write channel; the read (SSE) stream stays open, so
+            # the manager's pump never returns and fail_outstanding never fires.
+            await fake.break_write_only()
+
+            # The forward send for this call fails — the proxy must answer it
+            # itself rather than leaving the client to wait forever.
+            rid = await client.send_request(
+                "tools/call", {"name": "echo", "arguments": {}}
+            )
+            resp = await client.await_result(rid, timeout=5)  # must not hang
+            assert isinstance(resp, JSONRPCResponse)
+            assert resp.result["isError"] is True
+
+        anyio.run(drive, body)
 
 
 class TestRapidRestartDoesNotWedge:
@@ -344,15 +382,15 @@ class TestRapidRestartDoesNotWedge:
             await client.initialize()
             for expected_instance in (2, 3, 4):
                 fake.kill()
-                await _settle(lambda: proxy.dn_write is None)
-                await _settle(lambda e=expected_instance: fake.connections >= e)
-                await _settle(lambda: proxy.dn_write is not None)
+                await settle(lambda: proxy.dn_write is None)
+                await settle(lambda e=expected_instance: fake.connections >= e)
+                await settle(lambda: proxy.dn_write is not None)
                 call = await client.request(
                     "tools/call", {"name": "echo", "arguments": {}}
                 )
-                assert f"instance={expected_instance}" in _text(call)
+                assert f"instance={expected_instance}" in text(call)
 
-        anyio.run(_drive, body)
+        anyio.run(drive, body)
 
 
 class TestWhileDown:
@@ -366,28 +404,28 @@ class TestWhileDown:
 
             fake.accept = False  # refuse reconnects: stays down
             fake.kill()
-            await _settle(lambda: proxy.dn_write is None)
+            await settle(lambda: proxy.dn_write is None)
 
             # tools/list still answered, identical to when it was up (from cache).
             tools_down = await client.request("tools/list")
-            assert _tool_names(tools_down) == _tool_names(tools_up)
+            assert tool_names(tools_down) == tool_names(tools_up)
 
             # tools/call returns a graceful tool-error, not a transport failure.
             call_down = await client.request(
                 "tools/call", {"name": "echo", "arguments": {}}
             )
             assert call_down.result["isError"] is True
-            assert "not connected" in _text(call_down).lower()
+            assert "not connected" in text(call_down).lower()
 
             # Bring PyMOL back; the proxy reconnects and calls work again.
             fake.accept = True
-            await _settle(lambda: proxy.dn_write is not None)
+            await settle(lambda: proxy.dn_write is not None)
             call_up = await client.request(
                 "tools/call", {"name": "echo", "arguments": {}}
             )
             assert call_up.result["isError"] is False
 
-        anyio.run(_drive, body)
+        anyio.run(drive, body)
 
 
 def test_module_importable() -> None:

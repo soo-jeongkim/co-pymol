@@ -96,20 +96,17 @@ class TriageState:
 
         return "\n".join(lines)
 
-    def current_record(self) -> StructureRecord | None:
-        """Get the record for the current file."""
-        if not self.files or not self.active_indices:
-            return None
-        idx = self.active_indices[self.index]
-        f = self.files[idx]
-        return self.records.get(f.name)
-
     def current_path(self) -> Path | None:
         """Get path of current file."""
         if not self.files or not self.active_indices:
             return None
         idx = self.active_indices[self.index]
         return self.files[idx]
+
+    def current_record(self) -> StructureRecord | None:
+        """Get the record for the current file."""
+        f = self.current_path()
+        return self.records.get(f.name) if f is not None else None
 
     def next(self) -> Path | None:
         """Advance to next structure, return its path."""

@@ -80,7 +80,7 @@ Edit `~/.cursor/mcp.json` so the `pymol` entry is:
   "mcpServers": {
     "pymol": {
       "command": "/Applications/PyMOL.app/Contents/bin/python",
-      "args": ["-m", "co_pymol.proxy"]
+      "args": ["-m", "co_pymol", "proxy"]
     }
   }
 }
@@ -91,12 +91,12 @@ Fully quit Cursor (`Cmd+Q`, not just close the window) and reopen; verify under 
 *Claude Code — proxy*
 
 ```bash
-claude mcp add --scope user pymol -- /Applications/PyMOL.app/Contents/bin/python -m co_pymol.proxy
+claude mcp add --scope user pymol -- /Applications/PyMOL.app/Contents/bin/python -m co_pymol proxy
 ```
 
 Works from any directory. `claude mcp list` should show `pymol`. *(Prefer direct SSE? `claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse`.)*
 
-Running PyMOL on a non-default host/port? Pass it through to the proxy: `… -m co_pymol.proxy --host <host> --port <port>`.
+Running PyMOL on a non-default host/port? Pass it through to the proxy: `… -m co_pymol proxy --host <host> --port <port>`.
 
 Once the plumbing is verified, open PyMOL first, *then* a new Cursor window / Claude Code session.
 

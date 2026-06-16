@@ -36,6 +36,7 @@ import os
 import sys
 import threading
 import traceback
+from importlib.metadata import PackageNotFoundError, version
 
 import anyio
 from mcp.client.sse import sse_client
@@ -59,6 +60,7 @@ from co_pymol.constants import (
 )
 from co_pymol.utils.jsonrpc import (
     empty_response,
+    envelope,
     rpc_error_response,
     rpc_id,
     tool_error_response,
@@ -68,6 +70,15 @@ try:  # pin the negotiated protocol version to whatever this SDK ships
     from mcp.types import LATEST_PROTOCOL_VERSION as DEFAULT_PROTOCOL
 except Exception:  # pragma: no cover - defensive
     DEFAULT_PROTOCOL = "2025-06-18"
+
+try:
+    VERSION = version("co-pymol")
+except PackageNotFoundError:  # pragma: no cover - running from a source checkout
+    VERSION = "0"
+
+# One user-facing phrasing for the downstream-unavailable condition, so every
+# error the client sees for "PyMOL isn't there" reads the same.
+PYMOL_NOT_CONNECTED = "PyMOL is not connected"
 
 
 def log(msg: str) -> None:
@@ -98,10 +109,10 @@ class Proxy:
         # drive a controllable fake without sockets. The timeouts are likewise
         # parameterised (defaulting to the module constants) so tests can run the
         # reconnect/backoff loop fast.
-        self._connect = connect or (lambda: sse_client(self.url))
-        self._backoff_start = backoff_start
-        self._backoff_cap = backoff_cap
-        self._first_connect_wait = first_connect_wait
+        self.connect = connect or (lambda: sse_client(self.url))
+        self.backoff_start = backoff_start
+        self.backoff_cap = backoff_cap
+        self.first_connect_wait = first_connect_wait
 
         # Upstream (toward Claude Code) write stream — set once stdio is up.
         self.up_write = None
@@ -113,7 +124,7 @@ class Proxy:
         # they answer Claude Code forever, including while PyMOL is down.
         self.cached_init_result: dict | None = None
         self.cached_tools_result: dict | None = None
-        self._tools_signature: str | None = None
+        self.tools_signature: str | None = None
 
         # Set the first time the cache is populated; lets initialize/tools/list
         # block briefly on a cold start until the first connect lands.
@@ -127,7 +138,7 @@ class Proxy:
         # downstream drop these are failed back so nothing hangs.
         self.outstanding: dict[object, str] = {}
 
-        self._internal_counter = 0
+        self.internal_counter = 0
 
     # -- upstream send helpers ------------------------------------------------
     async def send_up(self, msg: JSONRPCMessage) -> None:
@@ -141,9 +152,9 @@ class Proxy:
     # -- lifecycle ------------------------------------------------------------
     async def run(self) -> None:
         async with stdio_server() as (up_read, up_write):
-            await self._serve(up_read, up_write, arm_watchdog=True)
+            await self.serve(up_read, up_write, arm_watchdog=True)
 
-    async def _serve(self, up_read, up_write, arm_watchdog: bool = True) -> None:
+    async def serve(self, up_read, up_write, arm_watchdog: bool = True) -> None:
         """Drive the proxy over already-open upstream streams until they close.
 
         Split out from ``run`` so tests can feed in-memory streams; production
@@ -151,29 +162,29 @@ class Proxy:
         """
         self.up_write = up_write
         async with anyio.create_task_group() as tg:
-            tg.start_soon(self._downstream_manager)
+            tg.start_soon(self.downstream_manager)
             # Upstream loop owns the lifetime: when stdin closes, Claude Code is
             # gone, so tear everything down.
-            await self._upstream_loop(up_read)
+            await self.upstream_loop(up_read)
             if arm_watchdog:
                 # Watchdog: guarantee the process dies promptly on stdin EOF even
                 # if anyio teardown wedges unwinding the reconnect loop (its sleep
                 # /finally awaits can delay cancellation). The OS reclaims sockets.
                 # Off in tests — os._exit would kill the test runner.
-                _arm_exit_watchdog(2.0)
+                arm_exit_watchdog(2.0)
             tg.cancel_scope.cancel()
 
     # -- downstream connection management ------------------------------------
-    async def _downstream_manager(self) -> None:
-        backoff = self._backoff_start
+    async def downstream_manager(self) -> None:
+        backoff = self.backoff_start
         while True:
             try:
-                async with self._connect() as (dn_read, dn_write):
-                    await self._handshake(dn_read, dn_write)
+                async with self.connect() as (dn_read, dn_write):
+                    await self.handshake(dn_read, dn_write)
                     self.dn_write = dn_write
-                    backoff = self._backoff_start
+                    backoff = self.backoff_start
                     log("downstream connected")
-                    await self._downstream_pump(dn_read)
+                    await self.downstream_pump(dn_read)
                     log("downstream stream ended")
             except anyio.get_cancelled_exc_class():
                 raise
@@ -181,60 +192,49 @@ class Proxy:
                 log(f"downstream connect/serve error: {exc!r}")
             finally:
                 self.dn_write = None
-                await self._fail_outstanding("PyMOL disconnected")
+                await self.fail_outstanding()
             await anyio.sleep(backoff)
-            backoff = min(backoff * 2, self._backoff_cap)
+            backoff = min(backoff * 2, self.backoff_cap)
 
-    async def _handshake(self, dn_read, dn_write) -> None:
+    async def handshake(self, dn_read, dn_write) -> None:
         """Initialize the (fresh) downstream server, then capture tools/list.
 
         Runs before the general pump starts, reading dn_read directly for the two
         responses we care about and forwarding any interleaved notifications.
         """
-        init_id = self._next_internal_id()
+        init_id = self.next_internal_id()
         init_params = {
             "protocolVersion": self.client_protocol,
             "capabilities": {},
-            "clientInfo": {"name": "co-pymol-proxy", "version": "0.1"},
+            "clientInfo": {"name": "co-pymol-proxy", "version": VERSION},
         }
         await dn_write.send(
-            SessionMessage(
-                message=JSONRPCMessage(
-                    JSONRPCRequest(
-                        jsonrpc="2.0",
-                        id=init_id,
-                        method="initialize",
-                        params=init_params,
-                    )
+            envelope(
+                JSONRPCRequest(
+                    jsonrpc="2.0", id=init_id, method="initialize", params=init_params
                 )
             )
         )
-        init_result = await self._read_until_response(dn_read, init_id)
+        init_result = await self.read_until_response(dn_read, init_id)
 
         await dn_write.send(
-            SessionMessage(
-                message=JSONRPCMessage(
-                    JSONRPCNotification(
-                        jsonrpc="2.0", method="notifications/initialized"
-                    )
-                )
+            envelope(
+                JSONRPCNotification(jsonrpc="2.0", method="notifications/initialized")
             )
         )
 
-        tools_id = self._next_internal_id()
+        tools_id = self.next_internal_id()
         await dn_write.send(
-            SessionMessage(
-                message=JSONRPCMessage(
-                    JSONRPCRequest(
-                        jsonrpc="2.0", id=tools_id, method="tools/list", params={}
-                    )
+            envelope(
+                JSONRPCRequest(
+                    jsonrpc="2.0", id=tools_id, method="tools/list", params={}
                 )
             )
         )
-        tools_result = await self._read_until_response(dn_read, tools_id)
+        tools_result = await self.read_until_response(dn_read, tools_id)
 
         self.cached_init_result = init_result
-        changed = self._update_tools_cache(tools_result)
+        changed = self.update_tools_cache(tools_result)
         if not self.cache_ready.is_set():
             self.cache_ready.set()
         if changed:
@@ -248,18 +248,16 @@ class Proxy:
                 )
             )
 
-    def _update_tools_cache(self, tools_result: dict) -> bool:
+    def update_tools_cache(self, tools_result: dict) -> bool:
         """Cache the tools list; return True if it changed from a prior connect."""
         names = sorted(t.get("name", "") for t in tools_result.get("tools", []))
         signature = "\n".join(names)
-        changed = (
-            self._tools_signature is not None and signature != self._tools_signature
-        )
+        changed = self.tools_signature is not None and signature != self.tools_signature
         self.cached_tools_result = tools_result
-        self._tools_signature = signature
+        self.tools_signature = signature
         return changed
 
-    async def _read_until_response(self, dn_read, want_id) -> dict:
+    async def read_until_response(self, dn_read, want_id) -> dict:
         """Read downstream messages until the response to `want_id`.
 
         Notifications seen along the way are forwarded upstream; other responses
@@ -278,7 +276,7 @@ class Proxy:
             # else: a response/request we did not ask for during handshake — drop
         raise RuntimeError("downstream stream ended during handshake")
 
-    async def _downstream_pump(self, dn_read) -> None:
+    async def downstream_pump(self, dn_read) -> None:
         """Forward everything from PyMOL to Claude Code until the stream ends."""
         async for item in dn_read:
             if isinstance(item, Exception):
@@ -290,21 +288,26 @@ class Proxy:
                 self.outstanding.pop(rid, None)
             await self.send_up(item.message)
 
-    async def _fail_outstanding(self, reason: str) -> None:
-        if not self.outstanding:
+    async def fail_one(self, req_id) -> None:
+        """Fail a single outstanding request back upstream; no-op if already gone.
+
+        Pops before the first await so concurrent callers (the send path and the
+        manager's teardown) can't both answer the same id.
+        """
+        method = self.outstanding.pop(req_id, None)
+        if method is None:
             return
-        pending = list(self.outstanding.items())
-        self.outstanding.clear()
-        for req_id, method in pending:
-            if method == "tools/call":
-                await self.send_up(
-                    tool_error_response(req_id, f"{reason} (no PyMOL connected)")
-                )
-            else:
-                await self.send_up(rpc_error_response(req_id, reason))
+        if method == "tools/call":
+            await self.send_up(tool_error_response(req_id, PYMOL_NOT_CONNECTED))
+        else:
+            await self.send_up(rpc_error_response(req_id, PYMOL_NOT_CONNECTED))
+
+    async def fail_outstanding(self) -> None:
+        for req_id in list(self.outstanding):
+            await self.fail_one(req_id)
 
     # -- upstream request handling -------------------------------------------
-    async def _upstream_loop(self, up_read) -> None:
+    async def upstream_loop(self, up_read) -> None:
         async for item in up_read:
             try:
                 if isinstance(item, Exception):
@@ -312,13 +315,13 @@ class Proxy:
                     continue
                 root = item.message.root
                 if isinstance(root, JSONRPCRequest):
-                    await self._handle_request(item, root)
+                    await self.handle_request(item, root)
                 elif isinstance(root, JSONRPCNotification):
-                    await self._handle_notification(item, root)
+                    await self.handle_notification(item, root)
                 else:
                     # A response from the client to a server-initiated request.
                     if self.dn_write is not None:
-                        await self._forward_down(item)
+                        await self.forward_down(item)
             except anyio.get_cancelled_exc_class():
                 raise
             except Exception:
@@ -326,12 +329,12 @@ class Proxy:
                 log("error handling upstream message:\n" + traceback.format_exc())
         log("stdin closed; shutting down")
 
-    async def _handle_request(self, item: SessionMessage, root: JSONRPCRequest) -> None:
+    async def handle_request(self, item: SessionMessage, root: JSONRPCRequest) -> None:
         method = root.method
         req_id = root.id
 
         if method == "initialize":
-            await self._handle_initialize(req_id, root.params or {})
+            await self.handle_initialize(req_id, root.params or {})
             return
 
         if method == "ping":
@@ -340,54 +343,64 @@ class Proxy:
             return
 
         if method == "tools/list":
-            await self._handle_tools_list(req_id)
+            await self.handle_tools_list(req_id)
             return
 
         if method == "tools/call":
-            if self.dn_write is not None:
-                self.outstanding[req_id] = method
-                await self._forward_down(item)
-            else:
-                name = (root.params or {}).get("name", "?")
-                await self.send_up(
-                    tool_error_response(
-                        req_id,
-                        f"PyMOL is not connected — cannot run tool '{name}'. "
-                        "Open/restart PyMOL and try again.",
-                    )
-                )
+            name = (root.params or {}).get("name", "?")
+            await self.forward_or_fail(
+                item,
+                req_id,
+                method,
+                tool_error_response(
+                    req_id,
+                    f"{PYMOL_NOT_CONNECTED} — cannot run tool '{name}'. "
+                    "Open/restart PyMOL and try again.",
+                ),
+            )
             return
 
-        # Anything else (resources/*, prompts/*, completion/*, ...): forward when
-        # connected, else a clean error.
+        # Anything else (resources/*, prompts/*, completion/*, ...).
+        await self.forward_or_fail(
+            item, req_id, method, rpc_error_response(req_id, PYMOL_NOT_CONNECTED)
+        )
+
+    async def forward_or_fail(
+        self, item: SessionMessage, req_id, method: str, down_response: JSONRPCMessage
+    ) -> None:
+        """Forward a request downstream (tracking it), else answer down_response."""
         if self.dn_write is not None:
             self.outstanding[req_id] = method
-            await self._forward_down(item)
+            await self.forward_down(item)
         else:
-            await self.send_up(rpc_error_response(req_id, "PyMOL is not connected"))
+            await self.send_up(down_response)
 
-    async def _handle_initialize(self, req_id, params: dict) -> None:
+    async def handle_initialize(self, req_id, params: dict) -> None:
         # Remember the client's protocol version for downstream (re)handshakes.
         proto = params.get("protocolVersion")
         if isinstance(proto, str) and proto:
             self.client_protocol = proto
 
-        await self._await_cache(self._first_connect_wait)
+        await self.await_cache(self.first_connect_wait)
 
         if self.cached_init_result is not None:
+            # Pass through PyMOL's actual negotiated protocolVersion rather than
+            # echoing the client's request — we're standing in for that server, so
+            # we shouldn't claim a version it doesn't speak. In practice both ends
+            # ship the same SDK, so these match.
             result = dict(self.cached_init_result)
         else:
-            # Synthesized fallback: PyMOL wasn't up in time. Advertise listChanged
-            # so we can nudge the client to refetch tools once PyMOL appears.
+            # Synthesized fallback: PyMOL wasn't up in time, so echo the client's
+            # version. Advertise listChanged so we can nudge the client to refetch
+            # tools once PyMOL appears.
             result = {
                 "protocolVersion": self.client_protocol,
-                "serverInfo": {"name": "co-pymol (proxy)", "version": "0.1"},
+                "serverInfo": {"name": "co-pymol (proxy)", "version": VERSION},
                 "capabilities": {"tools": {"listChanged": True}},
                 "instructions": (
                     "PyMOL is not connected yet; tools appear once it starts."
                 ),
             }
-        result["protocolVersion"] = self.client_protocol
         caps = result.setdefault("capabilities", {})
         tools_cap = caps.setdefault("tools", {})
         if isinstance(tools_cap, dict):
@@ -396,14 +409,14 @@ class Proxy:
             JSONRPCMessage(JSONRPCResponse(jsonrpc="2.0", id=req_id, result=result))
         )
 
-    async def _handle_tools_list(self, req_id) -> None:
-        await self._await_cache(self._first_connect_wait)
+    async def handle_tools_list(self, req_id) -> None:
+        await self.await_cache(self.first_connect_wait)
         result = self.cached_tools_result or {"tools": []}
         await self.send_up(
             JSONRPCMessage(JSONRPCResponse(jsonrpc="2.0", id=req_id, result=result))
         )
 
-    async def _handle_notification(
+    async def handle_notification(
         self, item: SessionMessage, root: JSONRPCNotification
     ) -> None:
         method = root.method
@@ -413,30 +426,42 @@ class Proxy:
             return
         # Cancellations, progress acks, etc. — best-effort forward when connected.
         if self.dn_write is not None:
-            await self._forward_down(item)
+            await self.forward_down(item)
 
-    async def _forward_down(self, item: SessionMessage) -> None:
+    async def forward_down(self, item: SessionMessage) -> None:
+        rid = rpc_id(item.message.root)
         dn_write = self.dn_write
         if dn_write is None:
+            # Lost the connection between registering and forwarding; fail it now.
+            if rid is not None:
+                await self.fail_one(rid)
             return
         try:
             await dn_write.send(item)
         except Exception as exc:
+            # SSE's POST (write) path is independent of the GET (read) stream, so a
+            # send can fail while the read side stays open — in which case the
+            # manager's fail_outstanding (which only runs after the read ends)
+            # would never fire for this request. Fail it back immediately rather
+            # than relying on the read side; mark disconnected so later requests
+            # take the clean down-path instead of orphaning too.
             log(f"downstream send failed: {exc!r}")
-            # The pump/manager will notice the drop and fail outstanding work.
+            self.dn_write = None
+            if rid is not None:
+                await self.fail_one(rid)
 
-    async def _await_cache(self, timeout: float) -> None:
+    async def await_cache(self, timeout: float) -> None:
         if self.cache_ready.is_set():
             return
         with anyio.move_on_after(timeout):
             await self.cache_ready.wait()
 
-    def _next_internal_id(self) -> str:
-        self._internal_counter += 1
-        return f"proxy-{self._internal_counter}"
+    def next_internal_id(self) -> str:
+        self.internal_counter += 1
+        return f"proxy-{self.internal_counter}"
 
 
-def _arm_exit_watchdog(seconds: float) -> None:
+def arm_exit_watchdog(seconds: float) -> None:
     """Force a hard process exit after `seconds` as a teardown backstop."""
 
     def _boom() -> None:
@@ -468,11 +493,3 @@ def run_proxy(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
         log("fatal:\n" + traceback.format_exc())
         return 1
     return 0
-
-
-if __name__ == "__main__":
-    # `python -m co_pymol.proxy [args]` routes through the CLI so there's a single
-    # argument parser (cli.py's `proxy` subcommand), not a second one here.
-    from co_pymol.cli import main
-
-    raise SystemExit(main(["proxy", *sys.argv[1:]]))

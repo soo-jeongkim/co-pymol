@@ -7,6 +7,7 @@ testable, like the other cross-cutting primitives under ``utils/``.
 
 from __future__ import annotations
 
+from mcp.shared.message import SessionMessage
 from mcp.types import (
     ErrorData,
     JSONRPCError,
@@ -15,6 +16,11 @@ from mcp.types import (
 )
 
 from co_pymol.constants import JSONRPC_SERVER_ERROR_CODE
+
+
+def envelope(root) -> SessionMessage:
+    """Wrap a JSON-RPC root (request/response/notification) as a SessionMessage."""
+    return SessionMessage(message=JSONRPCMessage(root))
 
 
 def rpc_id(root: object):
