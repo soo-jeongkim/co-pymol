@@ -117,19 +117,27 @@ Appends two lines (a sentinel comment + the import) to `~/.pymolrc.py` so PyMOL 
 
 **3. Wire up the MCP client the user is using**
 
-Ask which client (or check the environment). Then:
+Ask which client (or check the environment). There are two transports — **default to the proxy**: the client launches `co-pymol proxy` (a bundled stdio MCP server) which forwards to PyMOL's SSE server and *survives PyMOL restarts*, so the client connection never drops. Direct SSE is simpler but the connection breaks whenever PyMOL restarts. Use the user's `$PYMOL_PYTHON` path as the proxy command so it has the package's deps.
 
-- **Claude Code:**
+- **Claude Code (proxy, recommended):**
   ```bash
-  claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse
+  claude mcp add --scope user pymol -- $PYMOL_PYTHON -m co_pymol proxy
   ```
-  Verify with `claude mcp list`.
+  Verify with `claude mcp list`. *(Direct SSE alternative: `claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse`.)*
 
-- **Cursor:**
-  ```bash
-  $PYMOL_PYTHON -m co_pymol.cli install-config
+- **Cursor (proxy, recommended):**
+  Edit `~/.cursor/mcp.json` so the `pymol` entry launches the proxy (preserve any other servers):
+  ```json
+  {
+    "mcpServers": {
+      "pymol": {
+        "command": "/Applications/PyMOL.app/Contents/bin/python",
+        "args": ["-m", "co_pymol", "proxy"]
+      }
+    }
+  }
   ```
-  Writes/merges `~/.cursor/mcp.json`. Tell the user to fully quit Cursor (`Cmd+Q`) and reopen.
+  Use the user's actual `$PYMOL_PYTHON` as `command`. Tell the user to fully quit Cursor (`Cmd+Q`) and reopen. *(Direct SSE alternative: `$PYMOL_PYTHON -m co_pymol.cli install-config`, which writes the `{"url": …}` form.)*
 
 **4. Tell the user to restart PyMOL**
 
@@ -138,6 +146,45 @@ You can't do this for them. They need a full quit + relaunch (not just closing t
 ```
 co-pymol: MCP server running on http://127.0.0.1:8766/sse
 ```
+
+### Upgrading an existing install (e.g. to 0.2.0)
+
+The steps depend on *how* it was installed, so check first — don't assume.
+
+**1. How is the package installed?**
+
+```bash
+$PYMOL_PYTHON -c "import co_pymol; print(co_pymol.__file__)"
+```
+
+- Path inside the cloned repo (`.../co-pymol/src/co_pymol/__init__.py`) → **editable** (`-e`). New code lands with a `git pull`; no reinstall needed.
+- Path inside `site-packages` → **copied**. You must reinstall after pulling.
+- `ModuleNotFoundError` but an old `pylot` package imports → **pre-rename install**; see the note at the end.
+
+(Don't rely on the reported version to decide — for editable installs `pip show co-pymol` / the package metadata version lags behind the code on disk until a reinstall, so the repo's git state is the source of truth.)
+
+**2. Update the code**
+
+```bash
+git -C <repo> pull
+```
+
+**3. Reinstall only if it was copied** (editable installs skip this):
+
+```bash
+$PYMOL_PYTHON -m pip install --user -e .   # also switches to editable, so future pulls just work
+```
+
+0.2.0 adds one dependency (`anyio`) that `mcp` already pulls in, so a reinstall isn't needed just for deps — only to copy new code on a non-editable install.
+
+**4. Re-point the MCP client at the proxy.** This is the main user-visible 0.2.0 change: the recommended wiring moved from direct SSE to the proxy, launched as `-m co_pymol proxy` (package + subcommand). If the client still points at a direct SSE url, or the interim `-m co_pymol.proxy` form (which no longer starts a server), update it:
+
+- Cursor: re-run `$PYMOL_PYTHON -m co_pymol.cli install-config` (now writes the proxy entry), then fully quit + reopen Cursor.
+- Claude Code: `claude mcp remove pymol -s user`, then `claude mcp add --scope user pymol -- $PYMOL_PYTHON -m co_pymol proxy`. (`claude mcp get pymol` shows the current command — if its Args read `-m co_pymol.proxy`, it's stale.)
+
+**5. Tell the user to restart PyMOL** so the plugin loads the new code (a full quit + relaunch).
+
+**Pre-rename (`pylot`) installs.** Older installs used the `pylot` package name. Migrate to a clean co-pymol install: `$PYMOL_PYTHON -m pip uninstall pylot`, delete the old `pylot` startup line from `~/.pymolrc.py`, then follow the install steps above from step 1.
 
 ### Verifying the install
 
@@ -155,7 +202,7 @@ That only proves the port is open. For a real end-to-end check, have the user as
 
 - **No `MCP server running on...` line in PyMOL console** — `~/.pymolrc.py` isn't being loaded. Check `echo $HOME` matches where the file lives, and confirm the user did a full quit + relaunch.
 - **`pip install` fails with "externally-managed-environment"** — you used the system Python, not PyMOL's. Re-check the interpreter path.
-- **Port 8766 already in use** — another PyMOL instance is running, or the user wants a different port. They can run `start_mcp <port>` from the PyMOL command line; update the MCP client URL to match (`install-config --host <host> --port <port>` for Cursor, or re-run `claude mcp add` with the new URL).
+- **Port 8766 already in use** — another PyMOL instance is running, or the user wants a different port. They can run `start_mcp <port>` from the PyMOL command line; point the client at the matching port. For the proxy, append `--port <port>` (and `--host <host>` if non-loopback) to the `-m co_pymol proxy` command. For direct SSE, use `install-config --host <host> --port <port>` (Cursor) or re-run `claude mcp add` with the new URL (Claude Code).
 - **Client running on a different machine than PyMOL** — the server binds loopback by default. The user must run `start_mcp 8766, 0.0.0.0` in PyMOL and point the client at the PyMOL host's IP.
 
 ### What NOT to do

@@ -66,27 +66,55 @@ By default the server binds `127.0.0.1:8766` (loopback) — PyMOL and your MCP c
 
 Both setups are global — every Cursor window or Claude Code session sees the `pymol` server, no need to `cd` into this repo.
 
-*Cursor*
+There are two ways to connect, and **the proxy is recommended**:
 
-```bash
-/Applications/PyMOL.app/Contents/bin/python -m co_pymol.cli install-config
+- **Proxy (recommended)** — your client launches a small bundled stdio server (`co-pymol proxy`) that forwards to PyMOL and *survives PyMOL quitting/restarting*, so your session never loses the connection. While PyMOL is down, tool calls return a clear "PyMOL is not connected" message instead of dropping the link; the next call after PyMOL is back just works.
+- **Direct SSE (simpler)** — your client connects straight to PyMOL's SSE server. One less moving part, but the connection drops whenever PyMOL restarts and you have to reconnect by hand.
+
+*Cursor — proxy*
+
+Edit `~/.cursor/mcp.json` so the `pymol` entry is:
+
+```json
+{
+  "mcpServers": {
+    "pymol": {
+      "command": "/Applications/PyMOL.app/Contents/bin/python",
+      "args": ["-m", "co_pymol", "proxy"]
+    }
+  }
+}
 ```
 
-Writes/merges `~/.cursor/mcp.json`. Fully quit Cursor (`Cmd+Q`, not just close the window) and reopen; verify under Settings → Cursor Settings → MCP that `pymol` is listed.
+Fully quit Cursor (`Cmd+Q`, not just close the window) and reopen; verify under Settings → Cursor Settings → MCP that `pymol` is listed. *(Prefer direct SSE? Run `/Applications/PyMOL.app/Contents/bin/python -m co_pymol.cli install-config`, which writes the `{"url": …}` form instead.)*
 
-*Claude Code*
+*Claude Code — proxy*
 
 ```bash
-claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse
+claude mcp add --scope user pymol -- /Applications/PyMOL.app/Contents/bin/python -m co_pymol proxy
 ```
 
-Works from any directory. `claude mcp list` should show `pymol`.
+Works from any directory. `claude mcp list` should show `pymol`. *(Prefer direct SSE? `claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse`.)*
+
+Running PyMOL on a non-default host/port? Pass it through to the proxy: `… -m co_pymol proxy --host <host> --port <port>`.
 
 Once the plumbing is verified, open PyMOL first, *then* a new Cursor window / Claude Code session.
 
 **5. Confirm the agent is talking to PyMOL**
 
 Ask the agent something like *"are you connected to PyMOL? what version is loaded?"* — if it calls a `pymol` tool (e.g. `get_version`) and reports back a real answer, you're wired up. If it says it can't see PyMOL or doesn't have any `pymol` tools, the MCP client isn't actually connected — re-check step 4 and make sure you opened a *new* session after wiring it up.
+
+## Upgrading
+
+Already have an older version? How you update depends on how you installed it:
+
+- **Editable install** (`pip install -e .`, the recipe above) — `git pull` in the repo, restart PyMOL, and re-point your MCP client at the proxy (below). No reinstall needed.
+- **Non-editable install** — `git pull`, then re-run `<pymol-python> -m pip install --user -e .` to pick up the new code.
+- **Installed back when it was `pylot`** — uninstall `pylot`, remove its line from `~/.pymolrc.py`, then do a fresh install.
+
+The change you'll actually feel in 0.2.0 is the **proxy wiring**: re-run `install-config` (Cursor) or re-register Claude Code with `… -m co_pymol proxy`. If your client still points at the older `-m co_pymol.proxy`, it won't start — update it.
+
+The full step-by-step, including how to tell which kind of install you have, is in the **"Upgrading an existing install"** section of [`AGENTS.md`](./AGENTS.md) — or just point your coding agent at that file.
 
 ## Experimenting!
 

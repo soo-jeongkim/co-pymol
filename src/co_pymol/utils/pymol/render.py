@@ -18,8 +18,13 @@ from co_pymol.constants import (
 
 
 def apply_plddt_palette(cmd, selection: str = "all") -> None:
-    """Color selection by pLDDT (b-factor 0–100, project palette)."""
-    cmd.spectrum("b", PLDDT_PALETTE, selection, 0, 100)
+    """Color selection by pLDDT (b-factor 0–100) with discrete AlphaFold bins."""
+    sel = f"({selection})"
+    # PyMOL selections don't support >=; use strict > with epsilon cutoffs.
+    cmd.color(PLDDT_PALETTE["very_high"], f"{sel} and b > 89.999")
+    cmd.color(PLDDT_PALETTE["confident"], f"{sel} and b > 69.999 and b < 90")
+    cmd.color(PLDDT_PALETTE["low"], f"{sel} and b > 49.999 and b < 70")
+    cmd.color(PLDDT_PALETTE["very_low"], f"{sel} and b < 50")
 
 
 def render_image(cmd, width: int, height: int, ray: bool = False) -> Image:

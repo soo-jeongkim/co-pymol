@@ -14,6 +14,16 @@ from co_pymol.tools.errors import error_wrapper
 from co_pymol.utils.pymol.helper import pymol_session
 
 
+def loaded_objects() -> list[str]:
+    """Loaded PyMOL object names. Raises if none — `error_wrapper` turns that
+    into the `Error: No objects loaded` string at the tool boundary."""
+    with pymol_session() as cmd:
+        objects = cmd.get_object_list()
+    if not objects:
+        raise ValueError("No objects loaded")
+    return objects
+
+
 def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
     @mcp.tool()
     @error_wrapper
@@ -22,10 +32,7 @@ def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
 
         For objects loaded via run('cmd.load(...)'), pass `path` to the structure file.
         """
-        with pymol_session() as cmd:
-            objects = cmd.get_object_list()
-        if not objects:
-            return "Error: No objects loaded"
+        objects = loaded_objects()
         if name and name not in objects:
             return f"Error: Object '{name}' not found. Loaded: {', '.join(objects)}"
 
@@ -52,10 +59,7 @@ def register_metrics_tools(mcp: FastMCP, session: AppSession) -> None:
                 return f"Error: No metrics for '{name}'.{hint}"
             return find_low(record, threshold)
 
-        with pymol_session() as cmd:
-            objects = cmd.get_object_list()
-        if not objects:
-            return "Error: No objects loaded"
+        objects = loaded_objects()
 
         results = []
         for obj in objects:

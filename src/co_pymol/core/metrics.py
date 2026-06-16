@@ -166,6 +166,20 @@ def _af3_base_and_index(stem: str) -> tuple[str | None, str | None]:
     return (af3.group(1), af3.group(2)) if af3 else (None, None)
 
 
+def sibling_candidates(
+    path: Path, af3_suffix: str, stem_patterns: list[str]
+) -> list[Path]:
+    """Sibling JSON candidates in priority order: the AF3-named file (when the
+    stem matches `<base>_model_N`) first, then the stem-specific patterns."""
+    parent, stem = path.parent, path.stem
+    af3_base, af3_n = _af3_base_and_index(stem)
+    candidates = []
+    if af3_base is not None:
+        candidates.append(parent / f"{af3_base}_{af3_suffix}_{af3_n}.json")
+    candidates += [parent / pat.format(stem=stem) for pat in stem_patterns]
+    return candidates
+
+
 def get_pae_candidates(path: Path) -> list[Path]:
     """Candidate PAE JSON siblings for a structure, in priority order.
 
@@ -173,17 +187,11 @@ def get_pae_candidates(path: Path) -> list[Path]:
     `<base>_full_data_N.json` — a different stem, so plain `{stem}_*` patterns
     miss it; we add the AF3 name explicitly when the stem matches.
     """
-    parent, stem = path.parent, path.stem
-    af3_base, af3_n = _af3_base_and_index(stem)
-    candidates = []
-    if af3_base is not None:
-        candidates.append(parent / f"{af3_base}_full_data_{af3_n}.json")
-    candidates += [
-        parent / f"{stem}_pae.json",
-        parent / f"pae_{stem}.json",
-        parent / f"{stem}_full_data_0.json",
-    ]
-    return candidates
+    return sibling_candidates(
+        path,
+        "full_data",
+        ["{stem}_pae.json", "pae_{stem}.json", "{stem}_full_data_0.json"],
+    )
 
 
 def get_conf_candidates(path: Path) -> list[Path]:
@@ -195,16 +203,11 @@ def get_conf_candidates(path: Path) -> list[Path]:
     every other structure. We require the stem to disambiguate ownership. AF3's
     `<base>_summary_confidences_N.json` is added explicitly when the stem matches.
     """
-    parent, stem = path.parent, path.stem
-    af3_base, af3_n = _af3_base_and_index(stem)
-    candidates = []
-    if af3_base is not None:
-        candidates.append(parent / f"{af3_base}_summary_confidences_{af3_n}.json")
-    candidates += [
-        parent / f"{stem}_summary_confidences.json",
-        parent / f"{stem}_confidences.json",
-    ]
-    return candidates
+    return sibling_candidates(
+        path,
+        "summary_confidences",
+        ["{stem}_summary_confidences.json", "{stem}_confidences.json"],
+    )
 
 
 def find_sibling_json(path: Path) -> dict:
