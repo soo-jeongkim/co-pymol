@@ -7,3 +7,6 @@ build/
 CLAUDE.md
 .DS_Store
 co_pymol/test/
+
+# Local demo videos (not embedded in the README)
+docs/media/*.mov
