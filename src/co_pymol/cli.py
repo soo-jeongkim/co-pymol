@@ -80,6 +80,16 @@ def cmd_install_hook(args: argparse.Namespace) -> None:
     print(write_pymolrc_hook(Path.home() / ".pymolrc.py"))
 
 
+def cmd_proxy(args: argparse.Namespace) -> int:
+    # Deferred import: proxy.py pulls in mcp/anyio, which (like pymol) only exist
+    # where the package's deps are installed. Importing it lazily here keeps the
+    # rest of the CLI (install-hook/install-config) runnable under a stdlib-only
+    # Python that just has the package source on its path.
+    from co_pymol.proxy import run_proxy
+
+    return run_proxy(args.host, args.port)
+
+
 def cmd_install_config(args: argparse.Namespace) -> None:
     if args.project:
         target = Path(args.project_dir).resolve() / ".cursor" / "mcp.json"
@@ -142,17 +152,41 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_install.set_defaults(func=cmd_install_config)
 
+    p_proxy = sub.add_parser(
+        "proxy",
+        help="Run the stdio MCP proxy that survives PyMOL restarts",
+        description=(
+            "Run a stdio MCP proxy in the foreground. A client (e.g. Claude Code) "
+            "launches this as a subprocess; it forwards to the co-pymol SSE server "
+            "in PyMOL and survives PyMOL quitting/restarting so the client's "
+            "connection never drops. Configure the client with: "
+            "`claude mcp add pymol -- co-pymol proxy`."
+        ),
+    )
+    p_proxy.add_argument(
+        "--host",
+        default=DEFAULT_HOST,
+        help=f"co-pymol SSE host (default: {DEFAULT_HOST})",
+    )
+    p_proxy.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_PORT,
+        help=f"co-pymol SSE port (default: {DEFAULT_PORT})",
+    )
+    p_proxy.set_defaults(func=cmd_proxy)
+
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        args.func(args)
+        # Subcommands return an exit code (proxy) or None (setup commands).
+        return args.func(args) or 0
     except (OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    return 0
 
 
 if __name__ == "__main__":

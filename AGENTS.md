@@ -117,19 +117,27 @@ Appends two lines (a sentinel comment + the import) to `~/.pymolrc.py` so PyMOL 
 
 **3. Wire up the MCP client the user is using**
 
-Ask which client (or check the environment). Then:
+Ask which client (or check the environment). There are two transports — **default to the proxy**: the client launches `co_pymol.proxy` (a bundled stdio MCP server) which forwards to PyMOL's SSE server and *survives PyMOL restarts*, so the client connection never drops. Direct SSE is simpler but the connection breaks whenever PyMOL restarts. Use the user's `$PYMOL_PYTHON` path as the proxy command so it has the package's deps.
 
-- **Claude Code:**
+- **Claude Code (proxy, recommended):**
   ```bash
-  claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse
+  claude mcp add --scope user pymol -- $PYMOL_PYTHON -m co_pymol.proxy
   ```
-  Verify with `claude mcp list`.
+  Verify with `claude mcp list`. *(Direct SSE alternative: `claude mcp add --transport sse --scope user pymol http://127.0.0.1:8766/sse`.)*
 
-- **Cursor:**
-  ```bash
-  $PYMOL_PYTHON -m co_pymol.cli install-config
+- **Cursor (proxy, recommended):**
+  Edit `~/.cursor/mcp.json` so the `pymol` entry launches the proxy (preserve any other servers):
+  ```json
+  {
+    "mcpServers": {
+      "pymol": {
+        "command": "/Applications/PyMOL.app/Contents/bin/python",
+        "args": ["-m", "co_pymol.proxy"]
+      }
+    }
+  }
   ```
-  Writes/merges `~/.cursor/mcp.json`. Tell the user to fully quit Cursor (`Cmd+Q`) and reopen.
+  Use the user's actual `$PYMOL_PYTHON` as `command`. Tell the user to fully quit Cursor (`Cmd+Q`) and reopen. *(Direct SSE alternative: `$PYMOL_PYTHON -m co_pymol.cli install-config`, which writes the `{"url": …}` form.)*
 
 **4. Tell the user to restart PyMOL**
 
@@ -155,7 +163,7 @@ That only proves the port is open. For a real end-to-end check, have the user as
 
 - **No `MCP server running on...` line in PyMOL console** — `~/.pymolrc.py` isn't being loaded. Check `echo $HOME` matches where the file lives, and confirm the user did a full quit + relaunch.
 - **`pip install` fails with "externally-managed-environment"** — you used the system Python, not PyMOL's. Re-check the interpreter path.
-- **Port 8766 already in use** — another PyMOL instance is running, or the user wants a different port. They can run `start_mcp <port>` from the PyMOL command line; update the MCP client URL to match (`install-config --host <host> --port <port>` for Cursor, or re-run `claude mcp add` with the new URL).
+- **Port 8766 already in use** — another PyMOL instance is running, or the user wants a different port. They can run `start_mcp <port>` from the PyMOL command line; point the client at the matching port. For the proxy, append `--port <port>` (and `--host <host>` if non-loopback) to the `-m co_pymol.proxy` command. For direct SSE, use `install-config --host <host> --port <port>` (Cursor) or re-run `claude mcp add` with the new URL (Claude Code).
 - **Client running on a different machine than PyMOL** — the server binds loopback by default. The user must run `start_mcp 8766, 0.0.0.0` in PyMOL and point the client at the PyMOL host's IP.
 
 ### What NOT to do
