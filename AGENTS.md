@@ -117,7 +117,7 @@ Appends two lines (a sentinel comment + the import) to `~/.pymolrc.py` so PyMOL 
 
 **3. Wire up the MCP client the user is using**
 
-Ask which client (or check the environment). There are two transports — **default to the proxy**: the client launches `co_pymol.proxy` (a bundled stdio MCP server) which forwards to PyMOL's SSE server and *survives PyMOL restarts*, so the client connection never drops. Direct SSE is simpler but the connection breaks whenever PyMOL restarts. Use the user's `$PYMOL_PYTHON` path as the proxy command so it has the package's deps.
+Ask which client (or check the environment). There are two transports — **default to the proxy**: the client launches `co-pymol proxy` (a bundled stdio MCP server) which forwards to PyMOL's SSE server and *survives PyMOL restarts*, so the client connection never drops. Direct SSE is simpler but the connection breaks whenever PyMOL restarts. Use the user's `$PYMOL_PYTHON` path as the proxy command so it has the package's deps.
 
 - **Claude Code (proxy, recommended):**
   ```bash

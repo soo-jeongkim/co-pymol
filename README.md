@@ -68,7 +68,7 @@ Both setups are global — every Cursor window or Claude Code session sees the `
 
 There are two ways to connect, and **the proxy is recommended**:
 
-- **Proxy (recommended)** — your client launches a small bundled stdio server (`co_pymol.proxy`) that forwards to PyMOL and *survives PyMOL quitting/restarting*, so your session never loses the connection. While PyMOL is down, tool calls return a clear "PyMOL is not connected" message instead of dropping the link; the next call after PyMOL is back just works.
+- **Proxy (recommended)** — your client launches a small bundled stdio server (`co-pymol proxy`) that forwards to PyMOL and *survives PyMOL quitting/restarting*, so your session never loses the connection. While PyMOL is down, tool calls return a clear "PyMOL is not connected" message instead of dropping the link; the next call after PyMOL is back just works.
 - **Direct SSE (simpler)** — your client connects straight to PyMOL's SSE server. One less moving part, but the connection drops whenever PyMOL restarts and you have to reconnect by hand.
 
 *Cursor — proxy*
