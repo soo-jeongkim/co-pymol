@@ -147,6 +147,45 @@ You can't do this for them. They need a full quit + relaunch (not just closing t
 co-pymol: MCP server running on http://127.0.0.1:8766/sse
 ```
 
+### Upgrading an existing install (e.g. to 0.2.0)
+
+The steps depend on *how* it was installed, so check first — don't assume.
+
+**1. How is the package installed?**
+
+```bash
+$PYMOL_PYTHON -c "import co_pymol; print(co_pymol.__file__)"
+```
+
+- Path inside the cloned repo (`.../co-pymol/src/co_pymol/__init__.py`) → **editable** (`-e`). New code lands with a `git pull`; no reinstall needed.
+- Path inside `site-packages` → **copied**. You must reinstall after pulling.
+- `ModuleNotFoundError` but an old `pylot` package imports → **pre-rename install**; see the note at the end.
+
+(Don't rely on the reported version to decide — for editable installs `pip show co-pymol` / the package metadata version lags behind the code on disk until a reinstall, so the repo's git state is the source of truth.)
+
+**2. Update the code**
+
+```bash
+git -C <repo> pull
+```
+
+**3. Reinstall only if it was copied** (editable installs skip this):
+
+```bash
+$PYMOL_PYTHON -m pip install --user -e .   # also switches to editable, so future pulls just work
+```
+
+0.2.0 adds one dependency (`anyio`) that `mcp` already pulls in, so a reinstall isn't needed just for deps — only to copy new code on a non-editable install.
+
+**4. Re-point the MCP client at the proxy.** This is the main user-visible 0.2.0 change: the recommended wiring moved from direct SSE to the proxy, launched as `-m co_pymol proxy` (package + subcommand). If the client still points at a direct SSE url, or the interim `-m co_pymol.proxy` form (which no longer starts a server), update it:
+
+- Cursor: re-run `$PYMOL_PYTHON -m co_pymol.cli install-config` (now writes the proxy entry), then fully quit + reopen Cursor.
+- Claude Code: `claude mcp remove pymol -s user`, then `claude mcp add --scope user pymol -- $PYMOL_PYTHON -m co_pymol proxy`. (`claude mcp get pymol` shows the current command — if its Args read `-m co_pymol.proxy`, it's stale.)
+
+**5. Tell the user to restart PyMOL** so the plugin loads the new code (a full quit + relaunch).
+
+**Pre-rename (`pylot`) installs.** Older installs used the `pylot` package name. Migrate to a clean co-pymol install: `$PYMOL_PYTHON -m pip uninstall pylot`, delete the old `pylot` startup line from `~/.pymolrc.py`, then follow the install steps above from step 1.
+
 ### Verifying the install
 
 After the user restarts PyMOL, confirm the server is reachable:

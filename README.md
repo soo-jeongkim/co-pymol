@@ -104,6 +104,18 @@ Once the plumbing is verified, open PyMOL first, *then* a new Cursor window / Cl
 
 Ask the agent something like *"are you connected to PyMOL? what version is loaded?"* — if it calls a `pymol` tool (e.g. `get_version`) and reports back a real answer, you're wired up. If it says it can't see PyMOL or doesn't have any `pymol` tools, the MCP client isn't actually connected — re-check step 4 and make sure you opened a *new* session after wiring it up.
 
+## Upgrading
+
+Already have an older version? How you update depends on how you installed it:
+
+- **Editable install** (`pip install -e .`, the recipe above) — `git pull` in the repo, restart PyMOL, and re-point your MCP client at the proxy (below). No reinstall needed.
+- **Non-editable install** — `git pull`, then re-run `<pymol-python> -m pip install --user -e .` to pick up the new code.
+- **Installed back when it was `pylot`** — uninstall `pylot`, remove its line from `~/.pymolrc.py`, then do a fresh install.
+
+The change you'll actually feel in 0.2.0 is the **proxy wiring**: re-run `install-config` (Cursor) or re-register Claude Code with `… -m co_pymol proxy`. If your client still points at the older `-m co_pymol.proxy`, it won't start — update it.
+
+The full step-by-step, including how to tell which kind of install you have, is in the **"Upgrading an existing install"** section of [`AGENTS.md`](./AGENTS.md) — or just point your coding agent at that file.
+
 ## Experimenting!
 
 1. Open PyMOL (the MCP server auto-starts).
