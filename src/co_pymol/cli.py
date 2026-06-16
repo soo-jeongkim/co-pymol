@@ -40,24 +40,47 @@ def load_config(path: Path) -> dict:
     return data
 
 
-def write_mcp_config(path: Path, host: str, port: int) -> str:
-    """Merge a `pymol` entry into mcpServers, preserving other servers."""
+def pymol_server_entry(host: str, port: int, use_sse: bool) -> dict:
+    """The `pymol` mcpServers entry: the restart-surviving proxy, or direct SSE.
+
+    The proxy entry launches `-m co_pymol.proxy` under *this* interpreter
+    (`sys.executable`) — the one co-pymol and its deps are installed in, which is
+    exactly what the proxy needs. host/port are only emitted when non-default.
+    """
+    if use_sse:
+        return {"url": server_url(host, port)}
+
+    args = ["-m", "co_pymol.proxy"]
+    if host != DEFAULT_HOST:
+        args += ["--host", host]
+    if port != DEFAULT_PORT:
+        args += ["--port", str(port)]
+    return {"command": sys.executable, "args": args}
+
+
+def write_mcp_config(path: Path, host: str, port: int, use_sse: bool = False) -> str:
+    """Merge a `pymol` entry into mcpServers, preserving other servers.
+
+    Writes the stdio proxy entry by default (survives PyMOL restarts); `use_sse`
+    writes the direct SSE url form instead.
+    """
     data = load_config(path)
     servers = data.setdefault("mcpServers", {})
     if not isinstance(servers, dict):
         raise ValueError(f"'mcpServers' in {path} must be an object.")
 
-    desired_url = server_url(host, port)
+    kind = "SSE" if use_sse else "proxy"
+    desired = pymol_server_entry(host, port, use_sse)
     existing = servers.get("pymol")
-    if isinstance(existing, dict) and existing.get("url") == desired_url:
-        return f"Already configured: {path} -> pymol @ {desired_url}"
+    if existing == desired:
+        return f"Already configured: {path} -> pymol ({kind})"
 
-    servers["pymol"] = {"url": desired_url}
+    servers["pymol"] = desired
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n")
 
     action = "Updated" if existing is not None else "Wrote"
-    return f"{action} {path} -> pymol @ {desired_url}"
+    return f"{action} {path} -> pymol ({kind})"
 
 
 def write_pymolrc_hook(path: Path) -> str:
@@ -97,7 +120,7 @@ def cmd_install_config(args: argparse.Namespace) -> None:
     else:
         target = Path.home() / ".cursor" / "mcp.json"
 
-    print(write_mcp_config(target, args.host, args.port))
+    print(write_mcp_config(target, args.host, args.port, use_sse=args.sse))
     if not args.project:
         print("Restart Cursor to pick up the change.")
 
@@ -124,10 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
         "install-config",
         help="Write Cursor MCP config so the pymol server is available everywhere",
         description=(
-            "Write Cursor MCP config. Default target is ~/.cursor/mcp.json (global), "
-            "which makes the pymol tools available in every Cursor window. "
-            "Use --project to write ./.cursor/mcp.json instead. "
-            "Existing entries in mcpServers are preserved."
+            "Write Cursor MCP config (~/.cursor/mcp.json by default; --project "
+            "writes ./.cursor/mcp.json). The pymol entry launches the "
+            "restart-surviving stdio proxy by default; use --sse for the direct "
+            "SSE url form. Other mcpServers entries are preserved."
         ),
     )
     p_install.add_argument(
@@ -139,6 +162,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--project-dir",
         default=".",
         help="Project root for --project (default: current directory)",
+    )
+    p_install.add_argument(
+        "--sse",
+        action="store_true",
+        help="Write the direct SSE url entry instead of the restart-surviving proxy",
     )
     p_install.add_argument(
         "--host",

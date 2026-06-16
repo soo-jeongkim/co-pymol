@@ -32,19 +32,16 @@ stdout is the protocol channel — keep it clean. All logging goes to stderr.
 
 from __future__ import annotations
 
-import argparse
 import os
 import sys
 import threading
 import traceback
-from collections.abc import Sequence
 
 import anyio
 from mcp.client.sse import sse_client
 from mcp.server.stdio import stdio_server
 from mcp.shared.message import SessionMessage
 from mcp.types import (
-    ErrorData,
     JSONRPCError,
     JSONRPCMessage,
     JSONRPCNotification,
@@ -53,24 +50,24 @@ from mcp.types import (
 )
 
 from co_pymol.cli import server_url
-from co_pymol.constants import DEFAULT_HOST, DEFAULT_PORT
+from co_pymol.constants import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
+    PROXY_BACKOFF_CAP,
+    PROXY_BACKOFF_START,
+    PROXY_FIRST_CONNECT_WAIT,
+)
+from co_pymol.utils.jsonrpc import (
+    empty_response,
+    rpc_error_response,
+    rpc_id,
+    tool_error_response,
+)
 
 try:  # pin the negotiated protocol version to whatever this SDK ships
     from mcp.types import LATEST_PROTOCOL_VERSION as DEFAULT_PROTOCOL
 except Exception:  # pragma: no cover - defensive
     DEFAULT_PROTOCOL = "2025-06-18"
-
-
-# ---------------------------------------------------------------------------
-# Tuning knobs (env-overridable so tests/operators can adjust without code edits)
-# ---------------------------------------------------------------------------
-BACKOFF_START = float(os.environ.get("PYMOL_PROXY_BACKOFF_START", "0.5"))
-BACKOFF_CAP = float(os.environ.get("PYMOL_PROXY_BACKOFF_CAP", "5.0"))
-# How long an upstream initialize/tools/list will wait for the *first* downstream
-# connect before falling back to a synthesized (empty-tools) reply. Kept finite so
-# a cold start with PyMOL not yet running doesn't hang Claude Code's handshake.
-FIRST_CONNECT_WAIT = float(os.environ.get("PYMOL_PROXY_FIRST_CONNECT_WAIT", "12.0"))
-ERROR_CODE = -32000  # JSON-RPC "server error" range
 
 
 def log(msg: str) -> None:
@@ -82,44 +79,15 @@ def log(msg: str) -> None:
         pass
 
 
-def _rpc_id(root: object):
-    return getattr(root, "id", None)
-
-
-def tool_error_response(req_id, text: str) -> JSONRPCMessage:
-    """A *successful* JSON-RPC response whose result is an errored CallToolResult.
-
-    This is how Claude Code surfaces the failure to the user gracefully (as a tool
-    result) instead of treating it as a protocol/transport error.
-    """
-    return JSONRPCMessage(
-        JSONRPCResponse(
-            jsonrpc="2.0",
-            id=req_id,
-            result={"content": [{"type": "text", "text": text}], "isError": True},
-        )
-    )
-
-
-def rpc_error_response(req_id, text: str, code: int = ERROR_CODE) -> JSONRPCMessage:
-    return JSONRPCMessage(
-        JSONRPCError(jsonrpc="2.0", id=req_id, error=ErrorData(code=code, message=text))
-    )
-
-
-def empty_response(req_id) -> JSONRPCMessage:
-    return JSONRPCMessage(JSONRPCResponse(jsonrpc="2.0", id=req_id, result={}))
-
-
 class Proxy:
     def __init__(
         self,
         url: str,
         connect=None,
         *,
-        backoff_start: float = BACKOFF_START,
-        backoff_cap: float = BACKOFF_CAP,
-        first_connect_wait: float = FIRST_CONNECT_WAIT,
+        backoff_start: float = PROXY_BACKOFF_START,
+        backoff_cap: float = PROXY_BACKOFF_CAP,
+        first_connect_wait: float = PROXY_FIRST_CONNECT_WAIT,
     ) -> None:
         self.url = url
 
@@ -317,7 +285,7 @@ class Proxy:
                 log(f"downstream read error: {item!r}")
                 return
             root = item.message.root
-            rid = _rpc_id(root)
+            rid = rpc_id(root)
             if isinstance(root, (JSONRPCResponse, JSONRPCError)):
                 self.outstanding.pop(rid, None)
             await self.send_up(item.message)
@@ -502,27 +470,9 @@ def run_proxy(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> int:
     return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Entry point for ``python -m co_pymol.proxy`` (the CLI uses run_proxy)."""
-    parser = argparse.ArgumentParser(
-        prog="co-pymol proxy",
-        description="Stdio MCP proxy that keeps Claude Code connected across "
-        "PyMOL restarts.",
-    )
-    parser.add_argument(
-        "--host",
-        default=DEFAULT_HOST,
-        help=f"co-pymol SSE host (default: {DEFAULT_HOST})",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=DEFAULT_PORT,
-        help=f"co-pymol SSE port (default: {DEFAULT_PORT})",
-    )
-    args = parser.parse_args(argv)
-    return run_proxy(args.host, args.port)
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    # `python -m co_pymol.proxy [args]` routes through the CLI so there's a single
+    # argument parser (cli.py's `proxy` subcommand), not a second one here.
+    from co_pymol.cli import main
+
+    raise SystemExit(main(["proxy", *sys.argv[1:]]))
