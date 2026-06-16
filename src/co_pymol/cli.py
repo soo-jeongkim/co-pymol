@@ -3,6 +3,7 @@
 Subcommands:
     install-hook       Append the plugin startup line to ~/.pymolrc.py
     install-config     Write Cursor MCP config (global by default)
+    proxy              Run the stdio MCP proxy that survives PyMOL restarts
 
 The CLI is pure stdlib — it does not import pymol or mcp — so it can run
 under any Python interpreter, even if the plugin itself was installed into
@@ -130,6 +131,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_install.add_argument(
+        "--project",
+        action="store_true",
+        help="Write project-level config (./.cursor/mcp.json) instead of global",
+    )
+    p_install.add_argument(
+        "--project-dir",
+        default=".",
+        help="Project root for --project (default: current directory)",
+    )
+    p_install.add_argument(
         "--host",
         default=DEFAULT_HOST,
         help=f"MCP server host (default: {DEFAULT_HOST})",
@@ -139,16 +150,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_PORT,
         help=f"MCP server port (default: {DEFAULT_PORT})",
-    )
-    p_install.add_argument(
-        "--project",
-        action="store_true",
-        help="Write project-level config (./.cursor/mcp.json) instead of global",
-    )
-    p_install.add_argument(
-        "--project-dir",
-        default=".",
-        help="Project root for --project (default: current directory)",
     )
     p_install.set_defaults(func=cmd_install_config)
 
