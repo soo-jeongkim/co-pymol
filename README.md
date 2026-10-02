@@ -10,6 +10,11 @@
 - **Work over SSHFS-mounted cluster paths** as usual
 - **Remote-control from your phone** through an MCP client that supports remote sessions
 
+## Codex demo
+
+https://github.com/user-attachments/assets/bbbdbe32-bc59-4446-9bd1-3e4860af022e
+
+
 An example session in Codex / Claude Code / Cursor:
 
 ```
